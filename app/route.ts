@@ -1,7 +1,7 @@
 import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
-import { initializeDatabase, isIpBanned, createFileRecord } from '../../lib/db';
+import { initializeDatabase, isIpBanned, createFileRecord } from '../lib/db';
 
 interface UploadResponse {
   success: boolean;
@@ -20,6 +20,11 @@ function getClientIP(request: NextRequest): string {
     request.headers.get('x-real-ip') ||
     '127.0.0.1'
   );
+}
+
+// Redirect GET requests to the home page
+export async function GET() {
+  return NextResponse.redirect(new URL('/home', process.env.BLOBZIP_URL || 'http://localhost:3000'));
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse<UploadResponse>> {

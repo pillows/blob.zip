@@ -36,7 +36,7 @@ export default function Home() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('/upload', {
+      const response = await fetch('/', {
         method: 'POST',
         body: formData,
       })
@@ -132,18 +132,18 @@ export default function Home() {
                 <h4>📤 Upload a File</h4>
                 <div className="curl-command-container">
                   <code className="curl-command">
-                    curl -F "file=@myfile.txt" {serverUrl}/upload
+                    curl -F "file=@myfile.txt" {serverUrl}
                   </code>
                   <button 
-                    onClick={() => copyToClipboard(`curl -F "file=@myfile.txt" ${serverUrl}/upload`)}
+                    onClick={() => copyToClipboard(`curl -F "file=@myfile.txt" ${serverUrl}`)}
                     className="copy-curl-btn"
                     title="Copy cURL command"
                   >
                     📋
                   </button>
                 </div>
-                <small>Or with custom filename: <code>curl "{serverUrl}/upload?f=custom.txt" --data-binary @./myfile.txt</code></small>
-                <p><strong>✨ Simple!</strong> Just <code>/upload</code> - no complex API paths to remember.</p>
+                <small>Or with custom filename: <code>curl "{serverUrl}?f=custom.txt" --data-binary @./myfile.txt</code></small>
+                <p><strong>✨ Ultra-simple!</strong> Just post to the root URL - as simple as it gets!</p>
               </div>
 
               <div className="curl-command-group">
@@ -203,7 +203,7 @@ export default function Home() {
               <h3>⚡ Features</h3>
               <ul>
                 <li>Up to 50MB file size limit</li>
-                                  <li>Ultra-simple upload: just POST to the root URL</li>
+                                  <li>Ultra-simple upload: just POST to the root domain</li>
                 <li>TypeScript CLI tool available</li>
                 <li>Download tracking and statistics</li>
               </ul>

@@ -67,7 +67,7 @@ program
       spinner.text = `Uploading ${fileName} (${formatFileSize(fileStats.size)})...`;
 
       const response: AxiosResponse<ApiResponse> = await axios.post(
-        `${options.url}/upload?f=${encodeURIComponent(fileName)}`,
+        `${options.url}?f=${encodeURIComponent(fileName)}`,
         fileStream,
         {
           headers: {

@@ -270,9 +270,12 @@ export default function AdminPanel() {
     <div className="admin-panel">
       <header className="admin-header">
         <h1>🛠️ BlobZip Admin Panel</h1>
-        <button onClick={() => setAuthenticated(false)} className="logout-btn">
-          Logout
-        </button>
+        <div className="header-actions">
+          <a href="/home" className="home-btn">← Home</a>
+          <button onClick={() => setAuthenticated(false)} className="logout-btn">
+            Logout
+          </button>
+        </div>
       </header>
 
       {stats && (
@@ -382,6 +385,26 @@ export default function AdminPanel() {
           display: flex;
           justify-content: space-between;
           align-items: center;
+        }
+
+        .header-actions {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+        }
+
+        .home-btn {
+          background: #6c757d;
+          color: white;
+          text-decoration: none;
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+          font-size: 0.9rem;
+          transition: background 0.2s ease;
+        }
+
+        .home-btn:hover {
+          background: #5a6268;
         }
         .admin-header h1 {
           margin: 0;
