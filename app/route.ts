@@ -59,21 +59,7 @@ export async function GET() {
           </div>
         </section>
 
-        <!-- CLI Section -->
-        <section class="cli-section">
-          <h3>TypeScript CLI Available</h3>
-          <div class="cli-info">
-            <p>Use the powerful TypeScript CLI for advanced file management:</p>
-            <div class="cli-commands">
-              <code>npm install -g .</code>
-              <code>blobzip upload ./myfile.pdf</code>
-              <code>blobzip config</code>
-            </div>
-            <p>
-              <small>See README for complete CLI documentation with examples and TypeScript development guide.</small>
-            </p>
-          </div>
-        </section>
+        
 
         <!-- cURL Commands Section -->
         <section class="curl-section">
@@ -136,15 +122,14 @@ export async function GET() {
             </ul>
           </div>
 
-          <div class="info-card">
-            <h3>⚡ Features</h3>
-            <ul>
-              <li>Up to 50MB file size limit</li>
-              <li>Ultra-simple upload: just POST to the root domain</li>
-              <li>TypeScript CLI tool available</li>
-              <li>Download tracking and statistics</li>
-            </ul>
-          </div>
+                      <div class="info-card">
+              <h3>⚡ Features</h3>
+              <ul>
+                <li>Up to 50MB file size limit</li>
+                <li>Ultra-simple upload: just POST to the root domain</li>
+                <li>One-time downloads for enhanced security</li>
+              </ul>
+            </div>
         </section>
       </main>
     </main>
@@ -241,39 +226,23 @@ export async function GET() {
       font-size: 0.9rem;
     }
 
-    .cli-section, .curl-section {
-      margin: 40px 0;
-      padding: 30px;
-      background: #f8f9fa;
-      border-radius: 12px;
-      border: 1px solid #e1e5e9;
-    }
+         .curl-section {
+       margin: 40px 0;
+       padding: 30px;
+       background: #f8f9fa;
+       border-radius: 12px;
+       border: 1px solid #e1e5e9;
+     }
 
-    .cli-section h3, .curl-section h3 {
-      margin: 0 0 20px 0;
-      color: #333;
-      font-size: 1.5rem;
-    }
+     .curl-section h3 {
+       margin: 0 0 20px 0;
+       color: #333;
+       font-size: 1.5rem;
+     }
 
-    .cli-info, .curl-info {
-      color: #555;
-    }
-
-    .cli-commands {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin: 20px 0;
-    }
-
-    .cli-commands code {
-      background: #2d3748;
-      color: #e2e8f0;
-      padding: 12px;
-      border-radius: 6px;
-      font-family: 'Monaco', 'Menlo', monospace;
-      font-size: 0.9rem;
-    }
+     .curl-info {
+       color: #555;
+     }
 
     .curl-command-group {
       margin: 30px 0;
