@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { customAlphabet } from 'nanoid';
 import { initializeDatabase, isIpBanned, createFileRecord } from '../lib/db';
 
-// Create nanoid without underscores - only alphanumeric and hyphens
-const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-', 8);
+// Create nanoid with only alphanumeric characters (no underscores or dashes)
+const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 8);
 
 interface UploadResponse {
   success: boolean;
