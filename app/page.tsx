@@ -36,7 +36,7 @@ export default function Home() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('/api/upload', {
+      const response = await fetch('/upload', {
         method: 'POST',
         body: formData,
       })
@@ -132,34 +132,18 @@ export default function Home() {
                 <h4>📤 Upload a File</h4>
                 <div className="curl-command-container">
                   <code className="curl-command">
-                    curl -F "file=@myfile.txt" {serverUrl}/api/upload
+                    curl -F "file=@myfile.txt" {serverUrl}/upload
                   </code>
                   <button 
-                    onClick={() => copyToClipboard(`curl -F "file=@myfile.txt" ${serverUrl}/api/upload`)}
+                    onClick={() => copyToClipboard(`curl -F "file=@myfile.txt" ${serverUrl}/upload`)}
                     className="copy-curl-btn"
                     title="Copy cURL command"
                   >
                     📋
                   </button>
                 </div>
-                <small>Or with custom filename: <code>curl "{serverUrl}/api/upload?f=custom.txt" --data-binary @./myfile.txt</code></small>
-              </div>
-
-              <div className="curl-command-group">
-                <h4>📋 List All Files</h4>
-                <div className="curl-command-container">
-                  <code className="curl-command">
-                    curl -X GET "{serverUrl}/api/files"
-                  </code>
-                  <button 
-                    onClick={() => copyToClipboard(`curl -X GET "${serverUrl}/api/files"`)}
-                    className="copy-curl-btn"
-                    title="Copy cURL command"
-                  >
-                    📋
-                  </button>
-                </div>
-                <small>⚠️ File listing is now restricted to administrators</small>
+                <small>Or with custom filename: <code>curl "{serverUrl}/upload?f=custom.txt" --data-binary @./myfile.txt</code></small>
+                <p><strong>✨ Simple!</strong> Just <code>/upload</code> - no complex API paths to remember.</p>
               </div>
 
               <div className="curl-command-group">
@@ -217,7 +201,7 @@ export default function Home() {
               <h3>⚡ Features</h3>
               <ul>
                 <li>Up to 50MB file size limit</li>
-                <li>Simple cURL commands for automation</li>
+                                  <li>Ultra-simple upload: just POST to the root URL</li>
                 <li>TypeScript CLI tool available</li>
                 <li>Download tracking and statistics</li>
               </ul>
