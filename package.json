@@ -1,0 +1,61 @@
+{
+  "name": "blobzip",
+  "version": "1.0.0",
+  "description": "Temporary file hosting and downloading service using Vercel Blobs",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "cli": "tsx cli/index.ts",
+    "build-cli": "tsc cli/index.ts --outDir dist --target es2020 --module commonjs --esModuleInterop --allowSyntheticDefaultImports --resolveJsonModule",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false"
+  },
+  "bin": {
+    "blobzip": "./cli/index.ts"
+  },
+  "dependencies": {
+    "@vercel/blob": "^0.15.1",
+    "next": "15.4.4",
+    "react": "^18",
+    "react-dom": "^18",
+    "commander": "^11.1.0",
+    "axios": "^1.6.2",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/jest": "^29.5.8",
+    "@types/supertest": "^6.0.0",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/jest-dom": "^6.1.4",
+    "@testing-library/user-event": "^14.5.1",
+    "eslint": "^8",
+    "eslint-config-next": "15.4.4",
+    "typescript": "^5",
+    "tsx": "^4.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "supertest": "^6.3.3",
+    "ts-jest": "^29.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "file-hosting",
+    "vercel-blob",
+    "temporary-storage",
+    "cli-tool",
+    "file-upload"
+  ],
+  "author": "blobzip",
+  "license": "MIT"
+} 
