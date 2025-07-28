@@ -208,15 +208,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="admin-link-section">
-            <div className="admin-info">
-              <h3>🛠️ Administrator Access</h3>
-              <p>System administrators can access the admin panel for file management and statistics.</p>
-              <a href="/admin" className="admin-link">
-                Access Admin Panel →
-              </a>
-            </div>
-          </section>
+
         </main>
       </main>
 
@@ -430,45 +422,7 @@ export default function Home() {
           line-height: 1.5;
         }
 
-        .admin-link-section {
-          margin: 3rem 0;
-          text-align: center;
-        }
-
-        .admin-info {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          padding: 2rem;
-          border-radius: 12px;
-          display: inline-block;
-          max-width: 400px;
-        }
-
-        .admin-info h3 {
-          margin: 0 0 1rem 0;
-          font-size: 1.3rem;
-        }
-
-        .admin-info p {
-          margin: 0 0 1.5rem 0;
-          opacity: 0.9;
-        }
-
-        .admin-link {
-          display: inline-block;
-          background: rgba(255, 255, 255, 0.2);
-          color: white;
-          text-decoration: none;
-          padding: 0.75rem 1.5rem;
-          border-radius: 8px;
-          font-weight: 600;
-          transition: background 0.2s ease;
-          backdrop-filter: blur(10px);
-        }
-
-        .admin-link:hover {
-          background: rgba(255, 255, 255, 0.3);
-        }
+        
 
         .curl-tips {
           margin-top: 30px;
