@@ -615,20 +615,31 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     // Get filename from query params or form data
     const { searchParams } = new URL(request.url);
     let filename = searchParams.get('f') || searchParams.get('filename');
+    let fileBuffer: Buffer;
 
-    if (!filename) {
-      // Try to get from form data
+    // Try to get from form data first
+    try {
       const formData = await request.formData();
       const file = formData.get('file') as File;
-      if (file) {
-        filename = file.name;
-        // Convert file to body for blob upload
-        request = new NextRequest(request.url, {
-          method: 'POST',
-          body: file.stream(),
-          headers: request.headers,
-        });
+      if (file && file.name) {
+        filename = filename || file.name;
+        // Convert File to ArrayBuffer then to Buffer
+        const arrayBuffer = await file.arrayBuffer();
+        fileBuffer = Buffer.from(arrayBuffer);
+      } else {
+        throw new Error('No file in form data');
       }
+    } catch (formError) {
+      // If form data parsing fails, try to read as raw binary data
+      if (!filename) {
+        return NextResponse.json(
+          { success: false, error: 'Filename is required. Use ?f=filename.ext or form data with file field' }, 
+          { status: 400 }
+        );
+      }
+      // Read the body as raw binary data
+      const arrayBuffer = await request.arrayBuffer();
+      fileBuffer = Buffer.from(arrayBuffer);
     }
 
     if (!filename) {
@@ -638,15 +649,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       );
     }
 
-    // Read the body into a buffer to get file size and use for upload
-    const bodyBuffer = Buffer.from(await request.arrayBuffer());
-    const fileSize = bodyBuffer.length;
+    const fileSize = fileBuffer.length;
 
     // Generate short ID
     const fileId = nanoid(8);
 
     // Upload to Vercel Blob
-    const blob = await put(`${fileId}-${filename}`, bodyBuffer, {
+    const blob = await put(`${fileId}-${filename}`, fileBuffer, {
       access: 'public',
       addRandomSuffix: false,
     });
