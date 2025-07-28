@@ -658,7 +658,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     const fileId = nanoid();
 
     // Upload to Vercel Blob
-    const blob = await put(`${fileId}-${filename}`, fileBuffer, {
+    const blob = await put(filename, fileBuffer, {
       access: 'public',
       addRandomSuffix: false,
     });
