@@ -46,10 +46,9 @@ export async function initializeDatabase() {
       )
     `)
 
-    // Create index for active bans
+    // Create index for IP bans lookup
     await db.query(`
-      CREATE INDEX IF NOT EXISTS idx_ip_bans_active ON ip_bans(ip_address, expires_at) 
-      WHERE expires_at IS NULL OR expires_at > NOW()
+      CREATE INDEX IF NOT EXISTS idx_ip_bans_lookup ON ip_bans(ip_address, expires_at)
     `)
 
     // Create admin login attempts table for rate limiting
