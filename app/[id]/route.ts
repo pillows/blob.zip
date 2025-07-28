@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeDatabase, getFileById, incrementDownloadCount } from '../../lib/db';
+import { initializeDatabase, getFileById, markFileAsDownloaded } from '../../lib/db';
 
 interface DownloadErrorResponse {
   error: string;
@@ -31,8 +31,20 @@ export async function GET(
       );
     }
 
-    // Increment download count
-    await incrementDownloadCount(id);
+    // Check if file has already been downloaded
+    if (file.downloaded_at) {
+      return NextResponse.json(
+        { 
+          error: 'File no longer available',
+          message: 'This file has already been downloaded and is no longer accessible. Files can only be downloaded once.',
+          downloadedAt: file.downloaded_at
+        }, 
+        { status: 410 } // 410 Gone
+      );
+    }
+
+    // Mark file as downloaded (this prevents future downloads)
+    await markFileAsDownloaded(id);
 
     // Redirect to the actual blob URL
     return NextResponse.redirect(file.blob_url);

@@ -11,6 +11,7 @@ interface AdminFileData {
   downloadCount: number;
   ipAddress: string;
   userAgent: string;
+  downloadedAt: string | null;
 }
 
 interface AdminFilesResponse {
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AdminFiles
       downloadCount: file.download_count,
       ipAddress: file.ip_address || 'Unknown',
       userAgent: file.user_agent || 'Unknown',
+      downloadedAt: file.downloaded_at,
     }));
 
     return NextResponse.json({

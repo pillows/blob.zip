@@ -166,6 +166,7 @@ export default function Home() {
               <div className="curl-tips">
                 <h4>💡 Tips:</h4>
                 <ul>
+                  <li><strong>⚠️ Files can only be downloaded once!</strong></li>
                   <li>Files expire automatically after 3 days</li>
                   <li>Use the short URL from upload response for downloads</li>
                   <li>Replace <code>FILE_ID</code> with the actual ID from upload response</li>
@@ -182,6 +183,7 @@ export default function Home() {
               <ol>
                 <li>Upload your files using the form above or cURL commands</li>
                 <li>Get a short, shareable URL instantly</li>
+                <li><strong>⚠️ Files can only be downloaded once</strong></li>
                 <li>Files are automatically deleted after 3 days</li>
                 <li>No registration required - completely anonymous</li>
               </ol>

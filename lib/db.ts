@@ -24,7 +24,8 @@ export async function initializeDatabase() {
         uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         expires_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() + INTERVAL '3 days',
         deleted_at TIMESTAMP WITH TIME ZONE,
-        download_count INTEGER DEFAULT 0
+        download_count INTEGER DEFAULT 0,
+        downloaded_at TIMESTAMP WITH TIME ZONE
       )
     `)
 
@@ -106,6 +107,20 @@ export async function getFileById(id: string) {
   }
 }
 
+export async function markFileAsDownloaded(id: string) {
+  try {
+    await db.query(
+      `UPDATE files 
+       SET downloaded_at = NOW(), download_count = download_count + 1 
+       WHERE id = $1 AND downloaded_at IS NULL`,
+      [id]
+    )
+  } catch (error) {
+    console.error('Error marking file as downloaded:', error)
+    throw error
+  }
+}
+
 export async function createFileRecord(data: {
   id: string
   filename: string
@@ -137,21 +152,12 @@ export async function createFileRecord(data: {
   }
 }
 
-export async function incrementDownloadCount(id: string) {
-  try {
-    await db.query(
-      `UPDATE files SET download_count = download_count + 1 WHERE id = $1`,
-      [id]
-    )
-  } catch (error) {
-    console.error('Error incrementing download count:', error)
-  }
-}
+
 
 export async function getAllFiles() {
   try {
     const result = await db.query(
-      `SELECT id, filename, size, uploaded_at, download_count
+      `SELECT id, filename, size, uploaded_at, download_count, downloaded_at, ip_address, user_agent
        FROM files 
        WHERE deleted_at IS NULL 
        AND expires_at > NOW()

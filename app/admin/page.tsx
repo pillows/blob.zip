@@ -11,6 +11,7 @@ interface FileData {
   downloadCount: number;
   ipAddress: string;
   userAgent: string;
+  downloadedAt: string | null;
 }
 
 interface AdminStats {
@@ -333,7 +334,7 @@ export default function AdminPanel() {
               </div>
               <div className="col-filename">Filename</div>
               <div className="col-size">Size</div>
-              <div className="col-downloads">Downloads</div>
+              <div className="col-downloads">Status</div>
               <div className="col-uploaded">Uploaded</div>
               <div className="col-ip">IP Address</div>
             </div>
@@ -353,7 +354,13 @@ export default function AdminPanel() {
                   <div className="file-id">ID: {file.id}</div>
                 </div>
                 <div className="col-size">{formatFileSize(file.size)}</div>
-                <div className="col-downloads">{file.downloadCount}</div>
+                <div className="col-downloads">
+                  {file.downloadedAt ? (
+                    <span className="status-downloaded">Downloaded</span>
+                  ) : (
+                    <span className="status-available">Available</span>
+                  )}
+                </div>
                 <div className="col-uploaded">{formatDate(file.uploadedAt)}</div>
                 <div className="col-ip">{file.ipAddress}</div>
               </div>
@@ -512,6 +519,18 @@ export default function AdminPanel() {
         }
         input[type="checkbox"] {
           transform: scale(1.2);
+        }
+
+        .status-downloaded {
+          color: #dc3545;
+          font-weight: 600;
+          font-size: 0.85rem;
+        }
+
+        .status-available {
+          color: #28a745;
+          font-weight: 600;
+          font-size: 0.85rem;
         }
       `}</style>
     </div>
