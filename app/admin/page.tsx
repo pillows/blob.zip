@@ -271,7 +271,7 @@ export default function AdminPanel() {
       <header className="admin-header">
         <h1>🛠️ BlobZip Admin Panel</h1>
         <div className="header-actions">
-          <a href="/home" className="home-btn">← Home</a>
+          <a href="/" className="home-btn">← Home</a>
           <button onClick={() => setAuthenticated(false)} className="logout-btn">
             Logout
           </button>
