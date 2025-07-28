@@ -1,7 +1,10 @@
 import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
-import { nanoid } from 'nanoid';
+import { customAlphabet } from 'nanoid';
 import { initializeDatabase, isIpBanned, createFileRecord } from '../lib/db';
+
+// Create nanoid without underscores - only alphanumeric and hyphens
+const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-', 8);
 
 interface UploadResponse {
   success: boolean;
@@ -652,7 +655,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     const fileSize = fileBuffer.length;
 
     // Generate short ID
-    const fileId = nanoid(8);
+    const fileId = nanoid();
 
     // Upload to Vercel Blob
     const blob = await put(`${fileId}-${filename}`, fileBuffer, {
