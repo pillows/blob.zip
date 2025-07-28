@@ -40,24 +40,50 @@ export async function GET() {
         <p class="subtitle">Temporary file hosting made simple</p>
       </header>
 
-      <main class="main">
-        <!-- Upload Section -->
-        <section class="upload-section">
-          <div class="upload-area">
-            <input
-              type="file"
-              id="file-input"
-              class="file-input"
-            />
-            <label for="file-input" class="upload-label">
-              <div class="upload-content">
-                <div class="upload-icon">📁</div>
-                <span>Click to upload a file</span>
-                <small>Maximum file size: 50MB</small>
-              </div>
-            </label>
-          </div>
-        </section>
+             <main class="main">
+         <!-- Upload Section -->
+         <section class="upload-section">
+           <div class="upload-area">
+             <input
+               type="file"
+               id="file-input"
+               class="file-input"
+             />
+             <label for="file-input" class="upload-label" id="upload-label">
+               <div class="upload-content">
+                 <div class="upload-icon">📁</div>
+                 <span id="upload-text">Click to upload a file</span>
+                 <small>Maximum file size: 50MB</small>
+               </div>
+             </label>
+           </div>
+           
+           <!-- Upload Result Section -->
+           <div id="upload-result" class="upload-result" style="display: none;">
+             <div class="result-content">
+               <div class="result-icon">✅</div>
+               <h3>File Uploaded Successfully!</h3>
+               <div class="result-details">
+                 <div class="result-row">
+                   <label>File URL:</label>
+                   <div class="url-container">
+                     <input type="text" id="file-url" class="url-input" readonly>
+                     <button id="copy-url-btn" class="copy-btn">📋</button>
+                   </div>
+                 </div>
+                 <div class="result-row">
+                   <label>Expires:</label>
+                   <span id="file-expiry" class="expiry-text"></span>
+                 </div>
+                 <div class="result-row">
+                   <label>File ID:</label>
+                   <span id="file-id" class="file-id"></span>
+                 </div>
+               </div>
+               <button id="upload-another" class="upload-another-btn">Upload Another File</button>
+             </div>
+           </div>
+         </section>
 
         
 
@@ -221,10 +247,107 @@ export async function GET() {
       margin-bottom: 0.5rem;
     }
 
-    .upload-content small {
-      color: #6b7280;
-      font-size: 0.9rem;
-    }
+         .upload-content small {
+       color: #6b7280;
+       font-size: 0.9rem;
+     }
+
+     .upload-result {
+       margin-top: 2rem;
+       background: #f0f9ff;
+       border: 2px solid #0ea5e9;
+       border-radius: 12px;
+       padding: 2rem;
+       text-align: center;
+     }
+
+     .result-content {
+       max-width: 500px;
+       margin: 0 auto;
+     }
+
+     .result-icon {
+       font-size: 3rem;
+       margin-bottom: 1rem;
+     }
+
+     .result-content h3 {
+       margin: 0 0 1.5rem 0;
+       color: #0c4a6e;
+       font-size: 1.5rem;
+     }
+
+     .result-details {
+       display: flex;
+       flex-direction: column;
+       gap: 1rem;
+       margin-bottom: 2rem;
+       text-align: left;
+     }
+
+     .result-row {
+       display: flex;
+       flex-direction: column;
+       gap: 0.5rem;
+     }
+
+     .result-row label {
+       font-weight: 600;
+       color: #374151;
+       font-size: 0.9rem;
+     }
+
+     .url-container {
+       display: flex;
+       gap: 0.5rem;
+     }
+
+     .url-input {
+       flex: 1;
+       padding: 0.75rem;
+       border: 1px solid #d1d5db;
+       border-radius: 6px;
+       font-family: 'Monaco', 'Menlo', monospace;
+       font-size: 0.9rem;
+       background: white;
+     }
+
+     .copy-btn {
+       background: #3b82f6;
+       color: white;
+       border: none;
+       padding: 0.75rem 1rem;
+       border-radius: 6px;
+       cursor: pointer;
+       font-size: 1rem;
+       transition: background 0.2s ease;
+     }
+
+     .copy-btn:hover {
+       background: #2563eb;
+     }
+
+     .expiry-text, .file-id {
+       color: #6b7280;
+       font-family: 'Monaco', 'Menlo', monospace;
+       font-size: 0.9rem;
+     }
+
+     .upload-another-btn {
+       background: #10b981;
+       color: white;
+       border: none;
+       padding: 0.75rem 1.5rem;
+       border-radius: 8px;
+       cursor: pointer;
+       font-size: 1rem;
+       font-weight: 600;
+       transition: background 0.2s ease;
+     }
+
+     .upload-another-btn:hover {
+       background: #059669;
+     }
 
          .curl-section {
        margin: 40px 0;
@@ -382,35 +505,88 @@ export async function GET() {
       });
     }
 
-    // Handle file upload
-    document.getElementById('file-input').addEventListener('change', async function(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+         // Handle file upload
+     document.getElementById('file-input').addEventListener('change', async function(event) {
+       const file = event.target.files[0];
+       if (!file) return;
 
-      const formData = new FormData();
-      formData.append('file', file);
+       const uploadLabel = document.getElementById('upload-label');
+       const uploadText = document.getElementById('upload-text');
+       const uploadResult = document.getElementById('upload-result');
+       
+       // Show uploading state
+       uploadLabel.classList.add('uploading');
+       uploadText.textContent = \`Uploading \${file.name}...\`;
 
-      try {
-        const response = await fetch('/', {
-          method: 'POST',
-          body: formData,
-        });
+       const formData = new FormData();
+       formData.append('file', file);
 
-        const data = await response.json();
+       try {
+         const response = await fetch('/', {
+           method: 'POST',
+           body: formData,
+         });
 
-        if (data.success) {
-          alert(\`File uploaded successfully!\\nID: \${data.id}\\nURL: \${data.url}\\nExpires: \${new Date(data.expiresAt).toLocaleDateString()}\`);
-        } else {
-          alert(\`Upload failed: \${data.error}\`);
-        }
-      } catch (error) {
-        console.error('Upload error:', error);
-        alert('Upload failed: Network error');
-      } finally {
-        // Clear the file input
-        event.target.value = '';
-      }
-    });
+         const data = await response.json();
+
+         if (data.success) {
+           // Show success result
+           document.getElementById('file-url').value = data.url;
+           document.getElementById('file-expiry').textContent = new Date(data.expiresAt).toLocaleString();
+           document.getElementById('file-id').textContent = data.id;
+           
+           uploadResult.style.display = 'block';
+           uploadLabel.style.display = 'none';
+         } else {
+           alert(\`Upload failed: \${data.error}\`);
+           // Reset upload state
+           uploadLabel.classList.remove('uploading');
+           uploadText.textContent = 'Click to upload a file';
+         }
+       } catch (error) {
+         console.error('Upload error:', error);
+         alert('Upload failed: Network error');
+         // Reset upload state
+         uploadLabel.classList.remove('uploading');
+         uploadText.textContent = 'Click to upload a file';
+       } finally {
+         // Clear the file input
+         event.target.value = '';
+       }
+     });
+
+     // Handle copy URL button
+     document.addEventListener('click', function(event) {
+       if (event.target.id === 'copy-url-btn') {
+         const urlInput = document.getElementById('file-url');
+         urlInput.select();
+         navigator.clipboard.writeText(urlInput.value).then(() => {
+           const btn = event.target;
+           const originalText = btn.textContent;
+           btn.textContent = '✅';
+           setTimeout(() => {
+             btn.textContent = originalText;
+           }, 2000);
+         }).catch(() => {
+           alert('Failed to copy URL');
+         });
+       }
+     });
+
+     // Handle upload another file button
+     document.addEventListener('click', function(event) {
+       if (event.target.id === 'upload-another') {
+         const uploadLabel = document.getElementById('upload-label');
+         const uploadText = document.getElementById('upload-text');
+         const uploadResult = document.getElementById('upload-result');
+         
+         // Reset to initial state
+         uploadResult.style.display = 'none';
+         uploadLabel.style.display = 'flex';
+         uploadLabel.classList.remove('uploading');
+         uploadText.textContent = 'Click to upload a file';
+       }
+     });
   </script>
 </body>
 </html>`;
