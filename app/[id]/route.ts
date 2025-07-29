@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeDatabase, getFileById, markFileAsDownloaded } from '../../lib/db';
+import { notifyFileDownload } from '../../lib/discord';
 
 interface DownloadErrorResponse {
   error: string;
   details?: string;
+}
+
+function getClientIP(request: NextRequest): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0] ||
+    request.headers.get('x-real-ip') ||
+    '127.0.0.1'
+  );
 }
 
 export async function GET(
@@ -43,8 +52,29 @@ export async function GET(
       );
     }
 
+    // Get client info for Discord notification
+    const clientIP = getClientIP(request);
+    const userAgent = request.headers.get('user-agent');
+
     // Mark file as downloaded (this prevents future downloads)
     await markFileAsDownloaded(id);
+
+    // Send Discord notification if webhook is configured
+    const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
+    if (discordWebhook) {
+      // Fire and forget - don't wait for Discord webhook
+      notifyFileDownload({
+        webhookUrl: discordWebhook,
+        fileId: file.id,
+        filename: file.filename,
+        size: file.size,
+        ipAddress: clientIP,
+        userAgent: userAgent || undefined,
+        uploadedAt: new Date(file.uploaded_at),
+      }).catch(error => {
+        console.error('Discord webhook error:', error);
+      });
+    }
 
     // Redirect to the actual blob URL
     return NextResponse.redirect(file.blob_url);

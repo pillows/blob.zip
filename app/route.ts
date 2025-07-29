@@ -143,13 +143,14 @@ export async function GET() {
           </div>
           
           <div class="info-card">
-            <h3>🔒 Privacy & Security</h3>
-            <ul>
-              <li>Files are stored securely with Vercel Blob</li>
-              <li>IP-based rate limiting prevents abuse</li>
-              <li>No file content scanning or tracking</li>
-              <li>Automatic cleanup after expiration</li>
-            </ul>
+                               <h3>🔒 Privacy & Security</h3>
+                   <ul>
+                     <li>Files are stored securely with Vercel Blob</li>
+                     <li>IP-based rate limiting prevents abuse</li>
+                     <li>No file content scanning or tracking</li>
+                     <li>Automatic cleanup after expiration</li>
+                     <li>Optional Discord notifications for monitoring</li>
+                   </ul>
           </div>
 
                       <div class="info-card">

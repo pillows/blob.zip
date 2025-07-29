@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { customAlphabet } from 'nanoid';
 import { initializeDatabase, isIpBanned, createFileRecord } from '../../../lib/db';
+import { notifyFileUpload } from '../../../lib/discord';
 
 // Create nanoid with only alphanumeric characters (no underscores or dashes)
 const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 8);
@@ -64,19 +65,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const payload = JSON.parse(tokenPayload || '{}');
           const { fileId, filename, clientIP, userAgent } = payload;
 
-          if (fileId && filename) {
+                    if (fileId && filename) {
             const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
             await createFileRecord({
               id: fileId,
               filename,
               blobUrl: blob.url,
               blobPathname: blob.pathname,
-                             size: 0, // Size will be determined from the client request
+              size: 0, // Size will be determined from the client request
               ipAddress: clientIP,
               userAgent,
             });
 
             console.log('File record created:', { fileId, filename, url: blob.url });
+
+            // Send Discord notification if webhook is configured
+            const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
+            if (discordWebhook) {
+              const baseUrl = process.env.BLOBZIP_URL || 'http://localhost:3000';
+              const downloadUrl = `${baseUrl}/${fileId}`;
+              
+              // Fire and forget - don't wait for Discord webhook
+              notifyFileUpload({
+                webhookUrl: discordWebhook,
+                fileId,
+                filename,
+                size: 0, // Size not available from blob upload response
+                ipAddress: clientIP,
+                userAgent,
+                downloadUrl,
+                expiresAt,
+              }).catch(error => {
+                console.error('Discord webhook error:', error);
+              });
+            }
           }
         } catch (error) {
           console.error('Error creating file record:', error);
