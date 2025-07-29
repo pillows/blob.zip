@@ -587,18 +587,51 @@ export async function GET() {
        uploadText.textContent = \`Uploading \${file.name}...\`;
 
        try {
-         // Use Vercel Blob client upload for direct uploads (bypasses 4.5MB limit)
-         const { upload } = await import('@vercel/blob/client');
-         
-         const blob = await upload(file.name, file, {
-           access: 'public',
-           handleUploadUrl: '/api/upload-url',
+         // Get upload URL for direct upload
+         const response = await fetch('/api/upload-url', {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json',
+           },
+           body: JSON.stringify({
+             filename: file.name,
+             contentType: file.type || 'application/octet-stream',
+           }),
          });
+
+         if (!response.ok) {
+           throw new Error('Failed to get upload URL');
+         }
+
+         const uploadData = await response.json();
+         
+         if (!uploadData.success) {
+           throw new Error(uploadData.error || 'Failed to get upload URL');
+         }
+         
+         // Upload directly to our direct upload endpoint
+         const uploadResponse = await fetch(uploadData.uploadUrl, {
+           method: 'PUT',
+           body: file,
+           headers: {
+             'Content-Type': file.type || 'application/octet-stream',
+           },
+         });
+
+         if (!uploadResponse.ok) {
+           throw new Error('Failed to upload file to storage');
+         }
+
+         const result = await uploadResponse.json();
+         
+         if (!result.success) {
+           throw new Error(result.error || 'Upload failed');
+         }
 
          // Get the file info from the successful upload
          const baseUrl = window.location.origin;
          
-         // Extract the file ID from the tokenPayload or generate URL directly
+         // Extract the file ID from the upload response
          // Since we can't easily extract the fileId from the client upload response,
          // we'll make a quick request to get the file details
          const detailsResponse = await fetch('/api/upload-details', {
@@ -607,7 +640,7 @@ export async function GET() {
              'Content-Type': 'application/json',
            },
            body: JSON.stringify({
-             blobUrl: blob.url,
+             blobUrl: result.url || '',
              filename: file.name,
              size: file.size,
            }),
@@ -616,7 +649,7 @@ export async function GET() {
          const details = await detailsResponse.json();
          
          // Show success result
-         document.getElementById('file-url').value = details.url || blob.url;
+         document.getElementById('file-url').value = details.url || result.url;
          document.getElementById('file-expiry').textContent = new Date(details.expiresAt || Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleString();
          document.getElementById('file-id').textContent = details.id || 'uploaded';
          
