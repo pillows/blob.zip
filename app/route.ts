@@ -55,8 +55,8 @@ export async function GET() {
              <label for="file-input" class="upload-label" id="upload-label">
                <div class="upload-content">
                  <div class="upload-icon">📁</div>
-                 <span id="upload-text">Click to upload a file</span>
-                 <small>Maximum file size: 50MB</small>
+                                      <span id="upload-text">Click to upload or drag & drop a file</span>
+                     <small>Maximum file size: 50MB</small>
                </div>
              </label>
            </div>
@@ -232,6 +232,21 @@ export async function GET() {
       border-color: #667eea;
       background: #f0f4ff;
       transform: translateY(-2px);
+    }
+
+    .upload-label.uploading {
+      cursor: not-allowed;
+      opacity: 0.7;
+      border-color: #fbbf24;
+      background: #fffbeb;
+    }
+
+    .upload-label.drag-over {
+      border-color: #10b981;
+      background: #ecfdf5;
+      border-style: solid;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.15);
     }
 
     .upload-content {
@@ -500,19 +515,66 @@ export async function GET() {
     }
   </style>
 
-  <script>
-    function copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        alert('Copied to clipboard!');
-      }).catch(() => {
-        alert('Failed to copy to clipboard');
-      });
-    }
+           <script>
+           function copyToClipboard(text) {
+             navigator.clipboard.writeText(text).then(() => {
+               alert('Copied to clipboard!');
+             }).catch(() => {
+               alert('Failed to copy to clipboard');
+             });
+           }
 
-         // Handle file upload with direct client-side upload (bypasses 4.5MB limit)
-     document.getElementById('file-input').addEventListener('change', async function(event) {
-       const file = event.target.files[0];
-       if (!file) return;
+           // Handle drag and drop functionality
+           function setupDragAndDrop() {
+             const uploadLabel = document.getElementById('upload-label');
+             const fileInput = document.getElementById('file-input');
+
+             // Prevent default drag behaviors
+             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+               uploadLabel.addEventListener(eventName, preventDefaults, false);
+               document.body.addEventListener(eventName, preventDefaults, false);
+             });
+
+             // Highlight drop area when item is dragged over it
+             ['dragenter', 'dragover'].forEach(eventName => {
+               uploadLabel.addEventListener(eventName, highlight, false);
+             });
+
+             ['dragleave', 'drop'].forEach(eventName => {
+               uploadLabel.addEventListener(eventName, unhighlight, false);
+             });
+
+             // Handle dropped files
+             uploadLabel.addEventListener('drop', handleDrop, false);
+
+             function preventDefaults(e) {
+               e.preventDefault();
+               e.stopPropagation();
+             }
+
+             function highlight(e) {
+               uploadLabel.classList.add('drag-over');
+               document.getElementById('upload-text').textContent = 'Drop your file here';
+             }
+
+             function unhighlight(e) {
+               uploadLabel.classList.remove('drag-over');
+               document.getElementById('upload-text').textContent = 'Click to upload or drag & drop a file';
+             }
+
+             function handleDrop(e) {
+               const dt = e.dataTransfer;
+               const files = dt.files;
+
+               if (files.length > 0) {
+                 handleFileUpload(files[0]);
+               }
+             }
+           }
+
+           // Handle file upload with direct client-side upload (bypasses 4.5MB limit)
+                async function handleFileUpload(file) {
+             if (!file) return;
 
        const uploadLabel = document.getElementById('upload-label');
        const uploadText = document.getElementById('upload-text');
@@ -573,11 +635,17 @@ export async function GET() {
          // Reset upload state
          uploadLabel.classList.remove('uploading');
          uploadText.textContent = 'Click to upload a file';
-       } finally {
-         // Clear the file input
-         event.target.value = '';
-       }
-     });
+                    }
+           }
+
+           document.getElementById('file-input').addEventListener('change', async function(event) {
+             const file = event.target.files[0];
+             if (file) {
+               await handleFileUpload(file);
+               // Clear the file input
+               event.target.value = '';
+             }
+           });
 
      // Handle copy URL button
      document.addEventListener('click', function(event) {
@@ -604,14 +672,19 @@ export async function GET() {
          const uploadText = document.getElementById('upload-text');
          const uploadResult = document.getElementById('upload-result');
          
-         // Reset to initial state
-         uploadResult.style.display = 'none';
-         uploadLabel.style.display = 'flex';
-         uploadLabel.classList.remove('uploading');
-         uploadText.textContent = 'Click to upload a file';
-       }
-     });
-  </script>
+                        // Reset to initial state
+               uploadResult.style.display = 'none';
+               uploadLabel.style.display = 'flex';
+               uploadLabel.classList.remove('uploading');
+               uploadText.textContent = 'Click to upload or drag & drop a file';
+             }
+           });
+
+           // Initialize drag and drop functionality
+           document.addEventListener('DOMContentLoaded', function() {
+             setupDragAndDrop();
+           });
+         </script>
 </body>
 </html>`;
 
