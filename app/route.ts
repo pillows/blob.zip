@@ -508,7 +508,7 @@ export async function GET() {
       });
     }
 
-         // Handle file upload
+         // Handle file upload with direct client-side upload (bypasses 4.5MB limit)
      document.getElementById('file-input').addEventListener('change', async function(event) {
        const file = event.target.files[0];
        if (!file) return;
@@ -521,34 +521,54 @@ export async function GET() {
        uploadLabel.classList.add('uploading');
        uploadText.textContent = \`Uploading \${file.name}...\`;
 
-       const formData = new FormData();
-       formData.append('file', file);
-
        try {
-         const response = await fetch('/', {
+         // Step 1: Get presigned upload URL
+         const urlResponse = await fetch('/api/upload-url', {
            method: 'POST',
-           body: formData,
+           headers: {
+             'Content-Type': 'application/json',
+           },
+           body: JSON.stringify({
+             filename: file.name,
+             contentType: file.type || 'application/octet-stream',
+           }),
          });
 
-         const data = await response.json();
-
-         if (data.success) {
-           // Show success result
-           document.getElementById('file-url').value = data.url;
-           document.getElementById('file-expiry').textContent = new Date(data.expiresAt).toLocaleString();
-           document.getElementById('file-id').textContent = data.id;
-           
-           uploadResult.style.display = 'block';
-           uploadLabel.style.display = 'none';
-         } else {
-           alert(\`Upload failed: \${data.error}\`);
-           // Reset upload state
-           uploadLabel.classList.remove('uploading');
-           uploadText.textContent = 'Click to upload a file';
+         const urlData = await urlResponse.json();
+         if (!urlData.success) {
+           throw new Error(urlData.error || 'Failed to get upload URL');
          }
+
+         // Step 2: Upload directly using chunked upload (bypasses 4.5MB limit)
+         const uploadResponse = await fetch(urlData.uploadUrl, {
+           method: 'PUT',
+           body: file,
+           headers: {
+             'Content-Type': file.type || 'application/octet-stream',
+             'Content-Length': file.size.toString(),
+           },
+         });
+
+         if (!uploadResponse.ok) {
+           throw new Error('Failed to upload file to storage');
+         }
+
+         const uploadResult = await uploadResponse.json();
+         if (!uploadResult.success) {
+           throw new Error(uploadResult.error || 'Upload failed');
+         }
+
+         // Show success result
+         document.getElementById('file-url').value = uploadResult.url;
+         document.getElementById('file-expiry').textContent = new Date(uploadResult.expiresAt).toLocaleString();
+         document.getElementById('file-id').textContent = uploadResult.id;
+         
+         uploadResult.style.display = 'block';
+         uploadLabel.style.display = 'none';
+
        } catch (error) {
          console.error('Upload error:', error);
-         alert('Upload failed: Network error');
+         alert(\`Upload failed: \${error.message}\`);
          // Reset upload state
          uploadLabel.classList.remove('uploading');
          uploadText.textContent = 'Click to upload a file';

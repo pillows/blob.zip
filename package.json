@@ -20,34 +20,34 @@
   },
   "dependencies": {
     "@vercel/blob": "^0.15.1",
-    "next": "15.4.4",
-    "react": "^18",
-    "react-dom": "^18",
-    "commander": "^11.1.0",
     "axios": "^1.6.2",
     "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "nanoid": "^5.0.4",
+    "next": "15.4.4",
     "ora": "^5.4.1",
     "pg": "^8.11.3",
-    "nanoid": "^5.0.4"
+    "react": "^18",
+    "react-dom": "^18"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.4",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "@types/jest": "^29.5.8",
     "@types/node": "^20",
+    "@types/pg": "^8.10.9",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "@types/jest": "^29.5.8",
     "@types/supertest": "^6.0.0",
-    "@testing-library/react": "^14.1.2",
-    "@testing-library/jest-dom": "^6.1.4",
-    "@testing-library/user-event": "^14.5.1",
     "eslint": "^8",
     "eslint-config-next": "15.4.4",
-    "typescript": "^5",
-    "tsx": "^4.7.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.1",
-    "@types/pg": "^8.10.9"
+    "tsx": "^4.7.0",
+    "typescript": "^5"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -61,4 +61,4 @@
   ],
   "author": "blobzip",
   "license": "MIT"
-} 
+}
