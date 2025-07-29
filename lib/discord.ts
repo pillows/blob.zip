@@ -176,11 +176,11 @@ export async function notifyFileDownload({
         value: maskIP(ipAddress),
         inline: true,
       },
-      {
-        name: '⚠️ Status',
-        value: 'File is now inaccessible (one-time download)',
-        inline: false,
-      },
+             {
+         name: '⚠️ Status',
+         value: 'File deleted from storage (one-time download)',
+         inline: false,
+       },
     ],
     timestamp: new Date().toISOString(),
     footer: {

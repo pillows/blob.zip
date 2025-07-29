@@ -1,3 +1,4 @@
+import { del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeDatabase, getFileById, markFileAsDownloaded } from '../../lib/db';
 import { notifyFileDownload } from '../../lib/discord';
@@ -58,6 +59,15 @@ export async function GET(
 
     // Mark file as downloaded (this prevents future downloads)
     await markFileAsDownloaded(id);
+
+    // Delete the file from Vercel Blob storage after download
+    try {
+      await del(file.blob_url);
+      console.log('File deleted from Vercel Blob:', file.filename);
+    } catch (blobError) {
+      console.error('Failed to delete file from Vercel Blob:', blobError);
+      // Continue with download even if blob deletion fails
+    }
 
     // Send Discord notification if webhook is configured
     const discordWebhook = process.env.DISCORD_WEBHOOK_URL;

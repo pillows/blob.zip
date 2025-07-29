@@ -119,8 +119,9 @@ export async function GET() {
             <div class="curl-tips">
               <h4>💡 Tips:</h4>
               <ul>
-                <li><strong>⚠️ Files can only be downloaded once!</strong></li>
-                <li>Files expire automatically after 3 days</li>
+                                   <li><strong>⚠️ Files can only be downloaded once!</strong></li>
+                   <li><strong>🗑️ Files are deleted immediately after download</strong></li>
+                   <li>Files expire automatically after 3 days</li>
                 <li>Use the short URL from upload response for downloads</li>
                 <li>Replace <code>FILE_ID</code> with the actual ID from upload response</li>
                 <li>Add <code>| jq</code> to pretty-print JSON responses</li>

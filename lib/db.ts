@@ -110,7 +110,7 @@ export async function markFileAsDownloaded(id: string) {
   try {
     await db.query(
       `UPDATE files 
-       SET downloaded_at = NOW(), download_count = download_count + 1 
+       SET downloaded_at = NOW(), download_count = download_count + 1, deleted_at = NOW()
        WHERE id = $1 AND downloaded_at IS NULL`,
       [id]
     )
