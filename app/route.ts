@@ -103,7 +103,8 @@ export async function GET() {
                 <button class="copy-curl-btn" onclick="copyToClipboard('curl -F \\"file=@myfile.txt\\" ${process.env.BLOBZIP_URL || 'http://localhost:3000'}')">📋</button>
               </div>
               <small>Or with custom filename: <code>curl "${process.env.BLOBZIP_URL || 'http://localhost:3000'}?f=custom.txt" --data-binary @./myfile.txt</code></small>
-              <p><strong>✨ Ultra-simple!</strong> Just post to the root URL - as simple as it gets!</p>
+                              <p><strong>✨ Ultra-simple!</strong> Just post to the root URL - as simple as it gets!</p>
+                <p><small>Note: Frontend now supports files >4.5MB through optimized upload process</small></p>
             </div>
 
             <div class="curl-command-group">
