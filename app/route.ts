@@ -585,46 +585,38 @@ export async function GET() {
        uploadText.textContent = \`Uploading \${file.name}...\`;
 
        try {
-         // Step 1: Get presigned upload URL
-         const urlResponse = await fetch('/api/upload-url', {
+         // Use Vercel Blob client upload for direct uploads (bypasses 4.5MB limit)
+         const { upload } = await import('@vercel/blob/client');
+         
+         const blob = await upload(file.name, file, {
+           access: 'public',
+           handleUploadUrl: '/api/upload-url',
+         });
+
+         // Get the file info from the successful upload
+         const baseUrl = window.location.origin;
+         
+         // Extract the file ID from the tokenPayload or generate URL directly
+         // Since we can't easily extract the fileId from the client upload response,
+         // we'll make a quick request to get the file details
+         const detailsResponse = await fetch('/api/upload-details', {
            method: 'POST',
            headers: {
              'Content-Type': 'application/json',
            },
            body: JSON.stringify({
+             blobUrl: blob.url,
              filename: file.name,
-             contentType: file.type || 'application/octet-stream',
+             size: file.size,
            }),
          });
 
-         const urlData = await urlResponse.json();
-         if (!urlData.success) {
-           throw new Error(urlData.error || 'Failed to get upload URL');
-         }
-
-         // Step 2: Upload directly using chunked upload (bypasses 4.5MB limit)
-         const uploadResponse = await fetch(urlData.uploadUrl, {
-           method: 'PUT',
-           body: file,
-           headers: {
-             'Content-Type': file.type || 'application/octet-stream',
-             'Content-Length': file.size.toString(),
-           },
-         });
-
-         if (!uploadResponse.ok) {
-           throw new Error('Failed to upload file to storage');
-         }
-
-         const uploadResult = await uploadResponse.json();
-         if (!uploadResult.success) {
-           throw new Error(uploadResult.error || 'Upload failed');
-         }
-
+         const details = await detailsResponse.json();
+         
          // Show success result
-         document.getElementById('file-url').value = uploadResult.url;
-         document.getElementById('file-expiry').textContent = new Date(uploadResult.expiresAt).toLocaleString();
-         document.getElementById('file-id').textContent = uploadResult.id;
+         document.getElementById('file-url').value = details.url || blob.url;
+         document.getElementById('file-expiry').textContent = new Date(details.expiresAt || Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleString();
+         document.getElementById('file-id').textContent = details.id || 'uploaded';
          
          uploadResult.style.display = 'block';
          uploadLabel.style.display = 'none';

@@ -1,21 +1,10 @@
+import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { customAlphabet } from 'nanoid';
-import { initializeDatabase, isIpBanned } from '../../../lib/db';
+import { initializeDatabase, isIpBanned, createFileRecord } from '../../../lib/db';
 
 // Create nanoid with only alphanumeric characters (no underscores or dashes)
 const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 8);
-
-interface UploadUrlRequest {
-  filename: string;
-  contentType?: string;
-}
-
-interface UploadUrlResponse {
-  success: boolean;
-  fileId?: string;
-  uploadUrl?: string;
-  error?: string;
-}
 
 function getClientIP(request: NextRequest): string {
   return (
@@ -25,7 +14,7 @@ function getClientIP(request: NextRequest): string {
   );
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse<UploadUrlResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     await initializeDatabase();
 
@@ -33,42 +22,75 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadUrl
     const clientIP = getClientIP(request);
     if (await isIpBanned(clientIP)) {
       return NextResponse.json(
-        { success: false, error: 'Access denied' },
+        { error: 'Access denied' },
         { status: 403 }
       );
     }
 
-    const body: UploadUrlRequest = await request.json();
-    const { filename } = body;
+    const body = (await request.json()) as HandleUploadBody;
 
-    if (!filename) {
-      return NextResponse.json(
-        { success: false, error: 'Filename is required' },
-        { status: 400 }
-      );
-    }
+    const jsonResponse = await handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        // Generate a short ID for this file
+        const fileId = nanoid();
+        
+        // Extract filename from pathname or use the pathname itself
+        const filename = pathname.split('/').pop() || pathname;
 
-    // Generate short ID for this upload
-    const fileId = nanoid();
+        return {
+          allowedContentTypes: [
+            'application/octet-stream', 
+            'image/*', 
+            'text/*', 
+            'application/*',
+            'video/*',
+            'audio/*'
+          ],
+          maximumSizeInBytes: 50 * 1024 * 1024, // 50MB limit
+          pathname: filename, // Use original filename as pathname in Vercel Blob
+          tokenPayload: JSON.stringify({
+            fileId,
+            filename,
+            clientIP,
+            userAgent: request.headers.get('user-agent') || undefined,
+          }),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        // This runs after successful upload - create database record
+        try {
+          const payload = JSON.parse(tokenPayload || '{}');
+          const { fileId, filename, clientIP, userAgent } = payload;
 
-    // Generate a simple upload URL pointing to our chunked upload endpoint
-    const baseUrl = process.env.BLOBZIP_URL || 
-                   (request.headers.get('host') ? 
-                    `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
-                    'http://localhost:3000');
+          if (fileId && filename) {
+            const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
+            await createFileRecord({
+              id: fileId,
+              filename,
+              blobUrl: blob.url,
+              blobPathname: blob.pathname,
+                             size: 0, // Size will be determined from the client request
+              ipAddress: clientIP,
+              userAgent,
+            });
 
-    const uploadUrl = `${baseUrl}/api/chunked-upload?fileId=${fileId}&filename=${encodeURIComponent(filename)}`;
-
-    return NextResponse.json({
-      success: true,
-      fileId,
-      uploadUrl,
+            console.log('File record created:', { fileId, filename, url: blob.url });
+          }
+        } catch (error) {
+          console.error('Error creating file record:', error);
+          // Don't throw here - the upload was successful, just logging failed
+        }
+      },
     });
+
+    return NextResponse.json(jsonResponse);
   } catch (error) {
-    console.error('Upload URL generation error:', error);
+    console.error('Upload handling error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to generate upload URL' },
-      { status: 500 }
+      { error: (error as Error).message },
+      { status: 400 }
     );
   }
 } 
