@@ -74,17 +74,25 @@ export async function GET(
       });
     }
 
-    // Mark file as downloaded and delete from Vercel Blob storage after a delay
+    // Mark file as downloaded immediately
+    try {
+      await markFileAsDownloaded(id);
+      console.log('File marked as downloaded:', file.filename);
+    } catch (error) {
+      console.error('Failed to mark file as downloaded:', error);
+      return NextResponse.json(
+        { error: 'Failed to process download' },
+        { status: 500 }
+      );
+    }
+
+    // Delete from Vercel Blob storage after a delay
     setTimeout(async () => {
       try {
-        // Mark as downloaded first
-        await markFileAsDownloaded(id);
-        
-        // Then delete from Vercel Blob storage
         await del(file.blob_url);
         console.log('File deleted from Vercel Blob:', file.filename);
       } catch (error) {
-        console.error('Failed to mark file as downloaded or delete from Vercel Blob:', error);
+        console.error('Failed to delete from Vercel Blob:', error);
       }
     }, 5000); // 5 second delay
 
