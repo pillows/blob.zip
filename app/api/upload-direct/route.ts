@@ -22,38 +22,49 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     console.log('Upload direct: Processing upload for fileId:', fileId, 'filename:', filename);
 
-    // Check content length to determine if this is a large file
-    const contentLength = request.headers.get('content-length');
-    const fileSize = contentLength ? parseInt(contentLength, 10) : 0;
-    
-    // If file is larger than 4MB, redirect to upload-stream endpoint
-    if (fileSize > 4 * 1024 * 1024) {
-      console.log('Upload direct: Large file detected, redirecting to upload-stream');
-      
-      // Forward the request to the upload-stream endpoint
-      const streamUrl = new URL('/api/upload-stream', request.url);
-      streamUrl.searchParams.set('fileId', fileId);
-      streamUrl.searchParams.set('filename', filename);
-      
-      const streamResponse = await fetch(streamUrl.toString(), {
-        method: 'PUT',
-        body: request.body,
-        headers: request.headers,
-      });
-      
-      // Return the response from the upload-stream endpoint
-      const responseData = await streamResponse.json();
-      return NextResponse.json(responseData, { status: streamResponse.status });
+    // Use streaming approach to handle large files efficiently
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+    const maxTotalSize = 100 * 1024 * 1024; // 100MB limit
+
+    // Read the request body as a stream
+    const reader = request.body?.getReader();
+    if (!reader) {
+      return NextResponse.json(
+        { success: false, error: 'No request body' },
+        { status: 400 }
+      );
     }
 
-    // For smaller files, process them directly
-    console.log('Upload direct: Processing small file directly');
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        chunks.push(value);
+        totalSize += value.length;
+        
+        // Check file size limit (100MB)
+        if (totalSize > maxTotalSize) {
+          return NextResponse.json(
+            { success: false, error: 'File too large (max 100MB)' },
+            { status: 413 }
+          );
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
 
-    // Read the file data from the request
-    const fileData = await request.arrayBuffer();
-    const fileBuffer = Buffer.from(fileData);
+    console.log('Upload direct: Total file size:', totalSize, 'bytes');
 
-    console.log('Upload direct: File size:', fileBuffer.length, 'bytes');
+    // Combine chunks into a single buffer
+    const fileBuffer = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const chunk of chunks) {
+      fileBuffer.set(chunk, offset);
+      offset += chunk.length;
+    }
 
     // Upload to Vercel Blob
     const blob = await put(filename, fileBuffer, {
