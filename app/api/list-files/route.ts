@@ -7,7 +7,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     
     // Get all files from database
     const result = await db.query(`
-      SELECT id, filename, size, uploaded_at, expires_at, downloaded_at, deleted_at
+      SELECT id, filename, size, blob_url, blob_pathname, uploaded_at, expires_at, downloaded_at, deleted_at
       FROM files 
       ORDER BY uploaded_at DESC
       LIMIT 10
@@ -20,6 +20,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         id: file.id,
         filename: file.filename,
         size: file.size,
+        blob_url: file.blob_url,
+        blob_pathname: file.blob_pathname,
         uploadedAt: file.uploaded_at,
         expiresAt: file.expires_at,
         downloadedAt: file.downloaded_at,

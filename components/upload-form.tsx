@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { nanoid } from 'nanoid';
-import { upload } from '@vercel/blob/client';
 
 export default function UploadForm() {
   const [file, setFile] = useState<File | null>(null);
@@ -28,62 +27,82 @@ export default function UploadForm() {
     setError(null);
 
     try {
-      const fileId = nanoid();
-      
-      // First, create a database record
-      const createRecordResponse = await fetch('/api/upload-url', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filename: file.name,
-        }),
-      });
+      // For files under 4MB, use the regular upload endpoint
+      if (file.size <= 4 * 1024 * 1024) {
+        const formData = new FormData();
+        formData.append('file', file);
 
-      if (!createRecordResponse.ok) {
-        throw new Error('Failed to create upload record');
-      }
-
-      const { fileId: createdFileId } = await createRecordResponse.json();
-
-      // Upload directly to Vercel Blob using client-side upload
-      const blob = await upload(file.name, file, {
-        access: 'public',
-        handleUploadUrl: '/api/upload-presigned',
-      });
-
-      // Update the database record with the blob information
-      const updateResponse = await fetch('/api/upload-complete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fileId: createdFileId,
-          blobUrl: blob.url,
-          blobPathname: blob.pathname,
-          size: file.size,
-        }),
-      });
-
-      if (!updateResponse.ok) {
-        throw new Error('Failed to update database record');
-      }
-
-      const result = await updateResponse.json();
-
-      if (result.success) {
-        setResult({
-          success: true,
-          id: createdFileId,
-          url: result.url,
-          filename: file.name,
-          size: file.size,
-          expiresAt: result.expiresAt,
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
         });
+
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+          setResult({
+            success: true,
+            id: result.id,
+            url: result.url,
+            filename: result.filename,
+            size: result.size,
+            expiresAt: result.expiresAt,
+          });
+        } else {
+          setError(result.error || 'Upload failed');
+        }
       } else {
-        setError(result.error || 'Upload failed');
+        // For larger files, use the upload-direct endpoint to bypass serverless limits
+        const fileId = nanoid();
+        
+        // First, create a database record
+        const createRecordResponse = await fetch('/api/upload-url', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filename: file.name,
+          }),
+        });
+
+        if (!createRecordResponse.ok) {
+          throw new Error('Failed to create upload record');
+        }
+
+        const { fileId: createdFileId } = await createRecordResponse.json();
+
+        // Upload to the upload-direct endpoint
+        const uploadResponse = await fetch(`/api/upload-direct?fileId=${createdFileId}&filename=${encodeURIComponent(file.name)}`, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+          },
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Upload failed');
+        }
+
+        const result = await uploadResponse.json();
+
+        if (result.success) {
+          setResult({
+            success: true,
+            id: result.id,
+            url: result.url,
+            filename: result.filename,
+            size: result.size,
+            expiresAt: result.expiresAt,
+          });
+        } else {
+          setError(result.error || 'Upload failed');
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');

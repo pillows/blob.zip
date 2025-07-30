@@ -518,6 +518,16 @@ export async function GET() {
   </style>
 
            <script>
+           // Simple nanoid implementation for client-side
+           function nanoid() {
+             const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+             let result = '';
+             for (let i = 0; i < 8; i++) {
+               result += chars.charAt(Math.floor(Math.random() * chars.length));
+             }
+             return result;
+           }
+
            function copyToClipboard(text) {
              navigator.clipboard.writeText(text).then(() => {
                alert('Copied to clipboard!');
@@ -574,75 +584,92 @@ export async function GET() {
              }
            }
 
-           // Handle file upload with direct client-side upload (bypasses 4.5MB limit)
-                async function handleFileUpload(file) {
+           // Handle file upload with optimized approach for different file sizes
+           async function handleFileUpload(file) {
              if (!file) return;
 
-       const uploadLabel = document.getElementById('upload-label');
-       const uploadText = document.getElementById('upload-text');
-       const uploadResult = document.getElementById('upload-result');
-       
-       // Show uploading state
-       uploadLabel.classList.add('uploading');
-       uploadText.textContent = \`Uploading \${file.name}...\`;
+             const uploadLabel = document.getElementById('upload-label');
+             const uploadText = document.getElementById('upload-text');
+             const uploadResult = document.getElementById('upload-result');
+             
+             // Show uploading state
+             uploadLabel.classList.add('uploading');
+             uploadText.textContent = \`Uploading \${file.name}...\`;
 
-       try {
-         // Get upload URL for Edge Runtime upload
-         const response = await fetch('/api/upload-url', {
-           method: 'POST',
-           headers: {
-             'Content-Type': 'application/json',
-           },
-           body: JSON.stringify({
-             filename: file.name,
-             contentType: file.type || 'application/octet-stream',
-           }),
-         });
+             try {
+               let result;
+               
+               // For files under 4MB, use the regular upload endpoint
+               if (file.size <= 4 * 1024 * 1024) {
+                 const formData = new FormData();
+                 formData.append('file', file);
 
-         if (!response.ok) {
-           throw new Error('Failed to get upload URL');
-         }
+                 const response = await fetch('/', {
+                   method: 'POST',
+                   body: formData,
+                 });
 
-         const uploadData = await response.json();
-         
-         if (!uploadData.success) {
-           throw new Error(uploadData.error || 'Failed to get upload URL');
-         }
-         
-         // Upload using streaming approach for large files
-         const uploadResponse = await fetch(uploadData.uploadUrl, {
-           method: 'PUT',
-           body: file,
-           headers: {
-             'Content-Type': file.type || 'application/octet-stream',
-           },
-         });
+                 if (!response.ok) {
+                   throw new Error('Upload failed');
+                 }
 
-         if (!uploadResponse.ok) {
-           throw new Error('Failed to upload file to storage');
-         }
+                 result = await response.json();
+               } else {
+                 // For larger files, use the upload-url + upload-stream flow
+                 const fileId = nanoid();
+                 
+                 // First, create a database record
+                 const createRecordResponse = await fetch('/api/upload-url', {
+                   method: 'POST',
+                   headers: {
+                     'Content-Type': 'application/json',
+                   },
+                   body: JSON.stringify({
+                     filename: file.name,
+                   }),
+                 });
 
-         const result = await uploadResponse.json();
-         
-         if (!result.success) {
-           throw new Error(result.error || 'Upload failed');
-         }
-         
-         // Show success result
-         document.getElementById('file-url').value = result.url;
-         document.getElementById('file-expiry').textContent = new Date(result.expiresAt).toLocaleString();
-         document.getElementById('file-id').textContent = result.id;
-         
-         uploadResult.style.display = 'block';
-         uploadLabel.style.display = 'none';
+                 if (!createRecordResponse.ok) {
+                   throw new Error('Failed to create upload record');
+                 }
 
-       } catch (error) {
-         console.error('Upload error:', error);
-         alert(\`Upload failed: \${error.message}\`);
-         // Reset upload state
-         uploadLabel.classList.remove('uploading');
-         uploadText.textContent = 'Click to upload a file';
-                    }
+                 const { fileId: createdFileId } = await createRecordResponse.json();
+
+                 // Upload to the upload-stream endpoint
+                 const uploadResponse = await fetch(\`/api/upload-stream?fileId=\${createdFileId}&filename=\${encodeURIComponent(file.name)}\`, {
+                   method: 'PUT',
+                   body: file,
+                   headers: {
+                     'Content-Type': file.type || 'application/octet-stream',
+                   },
+                 });
+
+                 if (!uploadResponse.ok) {
+                   throw new Error('Upload failed');
+                 }
+
+                 result = await uploadResponse.json();
+               }
+
+               if (result.success) {
+                 // Show success result
+                 document.getElementById('file-url').value = result.url;
+                 document.getElementById('file-expiry').textContent = new Date(result.expiresAt).toLocaleString();
+                 document.getElementById('file-id').textContent = result.id;
+                 
+                 uploadResult.style.display = 'block';
+                 uploadLabel.style.display = 'none';
+               } else {
+                 throw new Error(result.error || 'Upload failed');
+               }
+
+             } catch (error) {
+               console.error('Upload error:', error);
+               alert(\`Upload failed: \${error.message}\`);
+               // Reset upload state
+               uploadLabel.classList.remove('uploading');
+               uploadText.textContent = 'Click to upload or drag & drop a file';
+             }
            }
 
            document.getElementById('file-input').addEventListener('change', async function(event) {

@@ -30,14 +30,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // For large files, we'll use a direct upload URL that bypasses serverless limits
+    // For Vercel Blob client, we need to return a presigned URL
+    // that the client can use to upload directly to Vercel Blob
+    console.log('Upload presigned: Generating presigned URL for fileId:', fileId, 'filename:', filename);
+
+    // Generate a presigned URL for direct upload to Vercel Blob
     const baseUrl = process.env.BLOBZIP_URL || 
                    (request.headers.get('host') ? 
                     `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
                     'http://localhost:3000');
 
-    // Use the upload-stream endpoint which has better handling for large files
-    const uploadUrl = `${baseUrl}/api/upload-stream?fileId=${fileId}&filename=${encodeURIComponent(filename)}`;
+    // Return a URL that the client can use to upload directly
+    const uploadUrl = `${baseUrl}/api/upload-direct?fileId=${fileId}&filename=${encodeURIComponent(filename)}`;
 
     return NextResponse.json({
       uploadUrl: uploadUrl,
