@@ -68,10 +68,19 @@ async function handleChunkedUpload(
 
   // Upload this chunk as a separate blob
   const chunkBlobName = `${fileId}_chunk_${chunkIndex}`;
-  const chunkBlob = await put(chunkBlobName, chunk, {
-    access: 'public',
-    addRandomSuffix: false,
-  });
+  console.log(`Upload stream: Attempting to upload chunk ${chunkIndex} as blob: ${chunkBlobName}`);
+  
+  let chunkBlob;
+  try {
+    chunkBlob = await put(chunkBlobName, chunk, {
+      access: 'public',
+      addRandomSuffix: false,
+    });
+    console.log(`Upload stream: Successfully uploaded chunk ${chunkIndex} as blob: ${chunkBlob.url}`);
+  } catch (blobError) {
+    console.error(`Upload stream: Failed to upload chunk ${chunkIndex} to Vercel Blob:`, blobError);
+    throw new Error(`Vercel Blob upload failed for chunk ${chunkIndex}: ${blobError instanceof Error ? blobError.message : 'Unknown error'}`);
+  }
 
   console.log(`Upload stream: Uploaded chunk ${chunkIndex} as blob: ${chunkBlob.url}`);
 
@@ -133,10 +142,18 @@ async function handleChunkedUpload(
       }
 
       // Upload the combined file
-      const finalBlob = await put(filename, combinedBuffer, {
-        access: 'public',
-        addRandomSuffix: false,
-      });
+      console.log('Upload stream: Attempting to upload combined file to Vercel Blob:', filename);
+      let finalBlob;
+      try {
+        finalBlob = await put(filename, combinedBuffer, {
+          access: 'public',
+          addRandomSuffix: false,
+        });
+        console.log('Upload stream: Successfully uploaded combined file to Vercel Blob:', finalBlob.url);
+      } catch (blobError) {
+        console.error('Upload stream: Failed to upload combined file to Vercel Blob:', blobError);
+        throw new Error(`Vercel Blob upload failed for combined file: ${blobError instanceof Error ? blobError.message : 'Unknown error'}`);
+      }
 
       console.log('Upload stream: Combined file uploaded successfully:', {
         url: finalBlob.url,
@@ -255,10 +272,18 @@ async function handleSingleFileUpload(
   }
 
   // Upload to Vercel Blob
-  const blob = await put(filename, fileBuffer, {
-    access: 'public',
-    addRandomSuffix: false,
-  });
+  console.log('Upload stream: Attempting to upload file to Vercel Blob:', filename);
+  let blob;
+  try {
+    blob = await put(filename, fileBuffer, {
+      access: 'public',
+      addRandomSuffix: false,
+    });
+    console.log('Upload stream: Successfully uploaded file to Vercel Blob:', blob.url);
+  } catch (blobError) {
+    console.error('Upload stream: Failed to upload file to Vercel Blob:', blobError);
+    throw new Error(`Vercel Blob upload failed: ${blobError instanceof Error ? blobError.message : 'Unknown error'}`);
+  }
 
   console.log('Upload stream: Updating database record for fileId:', fileId);
   console.log('Upload stream: Blob URL:', blob.url);
