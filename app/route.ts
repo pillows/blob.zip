@@ -805,10 +805,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     const fileId = nanoid();
 
     // Upload to Vercel Blob
-    const blob = await put(filename, fileBuffer, {
-      access: 'public',
-      addRandomSuffix: false,
+    console.log('Attempting to upload to Vercel Blob:', {
+      filename,
+      fileSize,
+      fileId
     });
+    
+    let blob;
+    try {
+      blob = await put(filename, fileBuffer, {
+        access: 'public',
+        addRandomSuffix: false,
+      });
+      console.log('Vercel Blob upload successful:', {
+        url: blob.url,
+        pathname: blob.pathname
+      });
+    } catch (blobError) {
+      console.error('Vercel Blob upload failed:', blobError);
+      throw new Error(`Blob upload failed: ${blobError instanceof Error ? blobError.message : 'Unknown error'}`);
+    }
 
     // Create database record
     const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
