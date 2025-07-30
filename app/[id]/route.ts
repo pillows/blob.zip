@@ -89,11 +89,39 @@ export async function GET(
     // Delete from Vercel Blob storage after a delay
     setTimeout(async () => {
       try {
-        // Use the blob pathname for deletion, not the full URL
-        await del(file.blob_pathname);
-        console.log('File deleted from Vercel Blob:', file.filename, 'pathname:', file.blob_pathname);
+        console.log('Attempting to delete blob:', {
+          filename: file.filename,
+          blobUrl: file.blob_url,
+          blobPathname: file.blob_pathname
+        });
+        
+        // Try using the blob pathname first
+        try {
+          await del(file.blob_pathname);
+          console.log('File deleted from Vercel Blob using pathname:', file.filename, 'pathname:', file.blob_pathname);
+        } catch (pathnameError) {
+          console.log('Failed to delete using pathname, trying URL:', pathnameError);
+          
+          // Fallback: try to extract pathname from URL
+          try {
+            const urlParts = file.blob_url.split('/');
+            const extractedPathname = urlParts[urlParts.length - 1];
+            await del(extractedPathname);
+            console.log('File deleted from Vercel Blob using extracted pathname:', file.filename, 'pathname:', extractedPathname);
+          } catch (urlError) {
+            console.error('Failed to delete using URL fallback:', urlError);
+            throw urlError;
+          }
+        }
       } catch (error) {
         console.error('Failed to delete from Vercel Blob:', error);
+        console.error('Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          filename: file.filename,
+          blobUrl: file.blob_url,
+          blobPathname: file.blob_pathname
+        });
       }
     }, 5000); // 5 second delay
 
