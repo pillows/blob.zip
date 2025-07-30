@@ -30,9 +30,13 @@ export async function PUT(request: NextRequest): Promise<NextResponse<UploadStre
       );
     }
 
-    // Use streaming approach to handle large files
+    console.log('Upload stream: Processing upload for fileId:', fileId, 'filename:', filename);
+
+    // Use streaming approach to handle large files efficiently
     const chunks: Uint8Array[] = [];
     let totalSize = 0;
+    const maxChunkSize = 1024 * 1024; // 1MB chunks
+    const maxTotalSize = 100 * 1024 * 1024; // 100MB limit
 
     // Read the request body as a stream
     const reader = request.body?.getReader();
@@ -51,10 +55,10 @@ export async function PUT(request: NextRequest): Promise<NextResponse<UploadStre
         chunks.push(value);
         totalSize += value.length;
         
-        // Check file size limit (50MB)
-        if (totalSize > 50 * 1024 * 1024) {
+        // Check file size limit (100MB)
+        if (totalSize > maxTotalSize) {
           return NextResponse.json(
-            { success: false, error: 'File too large (max 50MB)' },
+            { success: false, error: 'File too large (max 100MB)' },
             { status: 413 }
           );
         }
@@ -62,6 +66,8 @@ export async function PUT(request: NextRequest): Promise<NextResponse<UploadStre
     } finally {
       reader.releaseLock();
     }
+
+    console.log('Upload stream: Total file size:', totalSize, 'bytes');
 
     // Combine chunks into a single buffer
     const fileBuffer = new Uint8Array(totalSize);
@@ -106,14 +112,17 @@ export async function PUT(request: NextRequest): Promise<NextResponse<UploadStre
     
     const shortenedUrl = `${baseUrl}/${fileId}`;
 
-    return NextResponse.json({
+    const response = {
       success: true,
       id: fileId,
       url: shortenedUrl,
       filename,
       size: fileBuffer.length,
       expiresAt: expiresAt.toISOString(),
-    });
+    };
+
+    console.log('Upload stream: Returning success response:', response);
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Upload stream error:', error);
     return NextResponse.json(

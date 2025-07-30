@@ -22,6 +22,33 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     console.log('Upload direct: Processing upload for fileId:', fileId, 'filename:', filename);
 
+    // Check content length to determine if this is a large file
+    const contentLength = request.headers.get('content-length');
+    const fileSize = contentLength ? parseInt(contentLength, 10) : 0;
+    
+    // If file is larger than 4MB, redirect to upload-stream endpoint
+    if (fileSize > 4 * 1024 * 1024) {
+      console.log('Upload direct: Large file detected, redirecting to upload-stream');
+      
+      // Forward the request to the upload-stream endpoint
+      const streamUrl = new URL('/api/upload-stream', request.url);
+      streamUrl.searchParams.set('fileId', fileId);
+      streamUrl.searchParams.set('filename', filename);
+      
+      const streamResponse = await fetch(streamUrl.toString(), {
+        method: 'PUT',
+        body: request.body,
+        headers: request.headers,
+      });
+      
+      // Return the response from the upload-stream endpoint
+      const responseData = await streamResponse.json();
+      return NextResponse.json(responseData, { status: streamResponse.status });
+    }
+
+    // For smaller files, process them directly
+    console.log('Upload direct: Processing small file directly');
+
     // Read the file data from the request
     const fileData = await request.arrayBuffer();
     const fileBuffer = Buffer.from(fileData);
