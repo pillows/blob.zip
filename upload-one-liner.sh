@@ -1,0 +1,133 @@
+#!/bin/bash
+
+# One-liner upload script for BlobZip
+# Usage: curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s "/path/to/file.mov"
+
+if [ $# -eq 0 ]; then
+    echo "Usage: curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s <file_path>"
+    echo "Example: curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s \"/Users/snow/Downloads/my-video.mov\""
+    exit 1
+fi
+
+FILE_PATH="$1"
+FILENAME=$(basename "$FILE_PATH")
+BASE_URL="https://blob.zip"
+
+echo "🚀 Starting upload for: $FILENAME"
+
+# Check if file exists
+if [ ! -f "$FILE_PATH" ]; then
+    echo "❌ Error: File not found at $FILE_PATH"
+    exit 1
+fi
+
+# Get file size
+FILE_SIZE=$(stat -f%z "$FILE_PATH" 2>/dev/null || stat -c%s "$FILE_PATH" 2>/dev/null)
+FILE_SIZE_MB=$((FILE_SIZE / 1024 / 1024))
+echo "📁 File size: ${FILE_SIZE_MB}MB"
+
+# Check if file is larger than 4MB
+if [ $FILE_SIZE -gt 4194304 ]; then
+    echo "📦 Large file detected, using chunked upload..."
+    
+    # Step 1: Create upload record
+    echo "📝 Creating upload record..."
+    CREATE_RESPONSE=$(curl -s -X POST "$BASE_URL/api/upload-url" \
+      -H "Content-Type: application/json" \
+      -d "{\"filename\":\"$FILENAME\"}")
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ Failed to create upload record"
+        exit 1
+    fi
+    
+    FILE_ID=$(echo "$CREATE_RESPONSE" | grep -o '"fileId":"[^"]*"' | cut -d'"' -f4)
+    if [ -z "$FILE_ID" ]; then
+        echo "❌ Failed to get file ID"
+        exit 1
+    fi
+    
+    echo "🆔 File ID: $FILE_ID"
+    
+    # Step 2: Upload chunks
+    CHUNK_SIZE=4194304  # 4MB
+    TOTAL_CHUNKS=$((($FILE_SIZE + $CHUNK_SIZE - 1) / $CHUNK_SIZE))
+    
+    echo "📤 Uploading $TOTAL_CHUNKS chunks..."
+    
+    for ((i=0; i<TOTAL_CHUNKS; i++)); do
+        START=$((i * CHUNK_SIZE))
+        CHUNK_SIZE_ACTUAL=$CHUNK_SIZE
+        if [ $((START + CHUNK_SIZE)) -gt $FILE_SIZE ]; then
+            CHUNK_SIZE_ACTUAL=$((FILE_SIZE - START))
+        fi
+        
+        IS_LAST_CHUNK="false"
+        if [ $i -eq $((TOTAL_CHUNKS - 1)) ]; then
+            IS_LAST_CHUNK="true"
+        fi
+        
+        echo "📤 Uploading chunk $((i+1))/$TOTAL_CHUNKS (${CHUNK_SIZE_ACTUAL} bytes)..."
+        
+        # Create temporary chunk file
+        CHUNK_FILE="chunk_${i}.tmp"
+        dd if="$FILE_PATH" bs=1 skip=$START count=$CHUNK_SIZE_ACTUAL 2>/dev/null > "$CHUNK_FILE"
+        
+        # Upload chunk
+        CHUNK_RESPONSE=$(curl -s -X PUT "$BASE_URL/api/upload-stream?fileId=$FILE_ID&filename=$(echo "$FILENAME" | sed 's/ /%20/g')&chunkIndex=$i&isLastChunk=$IS_LAST_CHUNK" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary @"$CHUNK_FILE")
+        
+        # Clean up temporary chunk file
+        rm "$CHUNK_FILE"
+        
+        if [ $? -ne 0 ]; then
+            echo "❌ Failed to upload chunk $((i+1))"
+            exit 1
+        fi
+        
+        echo "✅ Chunk $((i+1)) uploaded successfully"
+        
+        # Check if this was the last chunk and get the final result
+        if [ "$IS_LAST_CHUNK" = "true" ]; then
+            FINAL_URL=$(echo "$CHUNK_RESPONSE" | grep -o '"url":"[^"]*"' | cut -d'"' -f4)
+            if [ -n "$FINAL_URL" ]; then
+                echo ""
+                echo "🎉 Upload completed successfully!"
+                echo "📁 File URL: $FINAL_URL"
+                echo "🆔 File ID: $FILE_ID"
+                echo ""
+                echo "You can now download your file at: $FINAL_URL"
+            else
+                echo "⚠️ Upload completed but failed to get final URL"
+                echo "Response: $CHUNK_RESPONSE"
+            fi
+        fi
+    done
+    
+else
+    echo "📤 Small file detected, using direct upload..."
+    
+    # For small files, try direct upload
+    UPLOAD_RESPONSE=$(curl -s -F "file=@$FILE_PATH" "$BASE_URL")
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ Upload failed"
+        exit 1
+    fi
+    
+    FINAL_URL=$(echo "$UPLOAD_RESPONSE" | grep -o '"url":"[^"]*"' | cut -d'"' -f4)
+    if [ -n "$FINAL_URL" ]; then
+        echo ""
+        echo "🎉 Upload completed successfully!"
+        echo "📁 File URL: $FINAL_URL"
+        echo ""
+        echo "You can now download your file at: $FINAL_URL"
+    else
+        echo "⚠️ Upload completed but failed to get final URL"
+        echo "Response: $UPLOAD_RESPONSE"
+    fi
+fi
+
+echo ""
+echo "✅ Upload process completed!" 
