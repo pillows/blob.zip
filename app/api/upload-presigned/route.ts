@@ -1,6 +1,10 @@
 import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeDatabase, updateFileRecord } from '../../../lib/db';
+import { initializeDatabase, createFileRecord } from '../../../lib/db';
+import { customAlphabet } from 'nanoid';
+
+// Create nanoid with only alphanumeric characters (no underscores or dashes)
+const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 8);
 
 // Use Node.js runtime for database compatibility
 export const runtime = 'nodejs';
@@ -22,38 +26,76 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Parse the request body to get file information
     const body = await request.json();
-    const { filename, contentType, fileId } = body;
-    if (!fileId || !filename) {
+    
+    let filename: string | undefined;
+    let fileId: string | undefined;
+    let contentType: string | undefined;
+
+    // Handle different payload structures
+    if (body.type === 'blob.generate-client-token' && body.payload) {
+      // Vercel Blob client token structure
+      filename = body.payload.pathname;
+      contentType = body.payload.contentType;
+      // Generate a fileId since it's not provided in this structure
+      fileId = nanoid();
+    } else {
+      // Standard structure
+      filename = body.filename;
+      fileId = body.fileId;
+      contentType = body.contentType;
+    }
+
+    if (!filename) {
       return NextResponse.json(
-        { error: 'Missing fileId or filename' },
+        { error: 'Missing filename or pathname' },
         { status: 400 }
       );
     }
 
-    // For Vercel Blob client, we need to return a presigned URL
-    // that the client can use to upload directly to Vercel Blob
-    console.log('Upload presigned: Generating presigned URL for fileId:', fileId, 'filename:', filename);
+    // Generate fileId if not provided
+    if (!fileId) {
+      fileId = nanoid();
+    }
 
-    // Generate a presigned URL for direct upload to Vercel Blob
-    const baseUrl = process.env.BLOBZIP_URL || 
-                   (request.headers.get('host') ? 
-                    `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
-                    'http://localhost:3000');
+    console.log('Upload presigned: Generating direct upload info for fileId:', fileId, 'filename:', filename);
 
-    // Return a URL that the client can use to upload directly
-    const uploadUrl = `${baseUrl}/api/upload-direct?fileId=${fileId}&filename=${encodeURIComponent(filename)}`;
+    // Create a database record first to track this upload
+    const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
+    const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+                     request.headers.get('x-real-ip') || 
+                     '127.0.0.1';
+    
+    try {
+      await createFileRecord({
+        id: fileId,
+        filename,
+        blobUrl: '', // Will be updated after direct upload
+        blobPathname: '', // Will be updated after direct upload
+        size: 0, // Will be updated after direct upload
+        ipAddress: clientIP,
+        userAgent: request.headers.get('user-agent') || undefined,
+      });
+      console.log('Upload presigned: Database record created for fileId:', fileId);
+    } catch (dbError) {
+      console.error('Upload presigned: Failed to create database record:', dbError);
+      // Continue anyway, the upload can still proceed
+    }
 
+    // Return information for direct Vercel Blob upload
+    // The client should use the @vercel/blob client SDK to upload directly
     return NextResponse.json({
-      uploadUrl: uploadUrl,
-      method: 'PUT',
-      headers: {
-        'Content-Type': contentType || 'application/octet-stream',
-      },
+      fileId: fileId,
+      filename: filename,
+      contentType: contentType || 'application/octet-stream',
+      uploadMethod: 'direct',
+      instructions: 'Use @vercel/blob client SDK to upload directly to Vercel Blob',
+      // The client should call the completion endpoint after successful upload
+      completionUrl: `${process.env.BLOBZIP_URL || 'https://blob.zip'}/api/upload-complete?fileId=${fileId}`,
     });
   } catch (error) {
     console.error('Presigned URL generation error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate presigned URL' },
+      { error: 'Failed to generate upload information' },
       { status: 500 }
     );
   }

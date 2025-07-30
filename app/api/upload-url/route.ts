@@ -69,7 +69,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadUrl
                     `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
                     'http://localhost:3000');
 
-    const uploadUrl = `${baseUrl}/api/upload-presigned?fileId=${fileId}&filename=${encodeURIComponent(filename)}`;
+    const uploadUrl = `${baseUrl}/api/upload-stream?fileId=${fileId}&filename=${encodeURIComponent(filename)}`;
 
     return NextResponse.json({
       success: true,

@@ -12,6 +12,12 @@
     "app/api/upload-direct/route.js": {
       "maxDuration": 60
     },
+    "app/api/upload-complete/route.js": {
+      "maxDuration": 30
+    },
+    "app/api/chunked-upload/route.js": {
+      "maxDuration": 60
+    },
     "app/api/files/route.js": {
       "maxDuration": 15
     },

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeDatabase, updateFileRecord } from '../../../lib/db';
+import { initializeDatabase, updateFileRecord, getFileById } from '../../../lib/db';
 
+// Use Node.js runtime for database compatibility
 export const runtime = 'nodejs';
 
 interface UploadCompleteRequest {
-  fileId: string;
   blobUrl: string;
   blobPathname: string;
   size: number;
@@ -12,7 +12,10 @@ interface UploadCompleteRequest {
 
 interface UploadCompleteResponse {
   success: boolean;
+  id?: string;
   url?: string;
+  filename?: string;
+  size?: number;
   expiresAt?: string;
   error?: string;
 }
@@ -21,19 +24,29 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadCom
   try {
     await initializeDatabase();
 
-    const body: UploadCompleteRequest = await request.json();
-    const { fileId, blobUrl, blobPathname, size } = body;
-
-    if (!fileId || !blobUrl || !blobPathname) {
+    const { searchParams } = new URL(request.url);
+    const fileId = searchParams.get('fileId');
+    
+    if (!fileId) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
+        { success: false, error: 'Missing fileId' },
+        { status: 400 }
+      );
+    }
+
+    // Get the upload completion data
+    const body: UploadCompleteRequest = await request.json();
+    const { blobUrl, blobPathname, size } = body;
+
+    if (!blobUrl || !blobPathname || !size) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required upload information' },
         { status: 400 }
       );
     }
 
     console.log('Upload complete: Updating database record for fileId:', fileId);
     console.log('Upload complete: Blob URL:', blobUrl);
-    console.log('Upload complete: Blob pathname:', blobPathname);
     console.log('Upload complete: File size:', size);
 
     // Update database record with actual file info
@@ -49,6 +62,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadCom
       throw dbError;
     }
 
+    // Get the updated file record
+    const file = await getFileById(fileId);
+    if (!file) {
+      return NextResponse.json(
+        { success: false, error: 'File record not found' },
+        { status: 404 }
+      );
+    }
+
     // Calculate expiration date (3 days from now)
     const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
@@ -60,14 +82,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadCom
     
     const shortenedUrl = `${baseUrl}/${fileId}`;
 
-    const response = {
+    return NextResponse.json({
       success: true,
+      id: fileId,
       url: shortenedUrl,
+      filename: file.filename,
+      size: file.size,
       expiresAt: expiresAt.toISOString(),
-    };
-
-    console.log('Upload complete: Returning success response:', response);
-    return NextResponse.json(response);
+    });
   } catch (error) {
     console.error('Upload complete error:', error);
     return NextResponse.json(

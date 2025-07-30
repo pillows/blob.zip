@@ -85,6 +85,11 @@ export async function uploadFileWithDirect({
   onProgress
 }: UploadOptions): Promise<UploadResult> {
   try {
+    // For large files, use the upload-stream endpoint
+    if (file.size > 4 * 1024 * 1024) {
+      return uploadFileWithStream({ file, fileId, onProgress });
+    }
+
     // Create form data
     const formData = new FormData();
     formData.append('file', file);
@@ -123,7 +128,7 @@ export async function uploadFileWithDirect({
         reject(new Error('Network error during upload'));
       });
 
-      xhr.open('POST', '/api/upload-direct');
+      xhr.open('POST', '/api/upload-stream');
       xhr.send(formData);
     });
   } catch (error) {
@@ -135,6 +140,38 @@ export async function uploadFileWithDirect({
   }
 }
 
+// Stream upload approach for large files
+export async function uploadFileWithStream({
+  file,
+  fileId,
+  onProgress
+}: UploadOptions): Promise<UploadResult> {
+  try {
+    // Upload to the upload-stream endpoint
+    const response = await fetch(`/api/upload-stream?fileId=${fileId}&filename=${encodeURIComponent(file.name)}`, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Upload failed');
+    }
+
+    return result;
+  } catch (error) {
+    console.error('Stream upload error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Stream upload failed',
+    };
+  }
+}
+
 // Alternative approach using fetch for more control
 export async function uploadFileWithFetch({
   file,
@@ -142,13 +179,18 @@ export async function uploadFileWithFetch({
   onProgress
 }: UploadOptions): Promise<UploadResult> {
   try {
+    // For large files, use the upload-stream endpoint
+    if (file.size > 4 * 1024 * 1024) {
+      return uploadFileWithStream({ file, fileId, onProgress });
+    }
+
     // Create form data
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileId', fileId);
 
     // Upload directly to our API
-    const response = await fetch('/api/upload-direct', {
+    const response = await fetch('/api/upload-stream', {
       method: 'POST',
       body: formData,
     });
@@ -176,8 +218,13 @@ export async function uploadFileWithChunks({
   onProgress
 }: UploadOptions): Promise<UploadResult> {
   try {
+    // For large files, use the upload-stream endpoint instead of chunked upload
+    if (file.size > 4 * 1024 * 1024) {
+      return uploadFileWithStream({ file, fileId, onProgress });
+    }
+
     // Initialize chunked upload
-    const initResponse = await fetch('/api/upload-direct', {
+    const initResponse = await fetch('/api/upload-stream', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -204,7 +251,7 @@ export async function uploadFileWithChunks({
       const chunk = file.slice(start, end);
       const isLastChunk = i === totalChunks - 1;
 
-      const chunkResponse = await fetch(`/api/upload-direct?fileId=${fileId}&chunkIndex=${i}&isLastChunk=${isLastChunk}`, {
+      const chunkResponse = await fetch(`/api/upload-stream?fileId=${fileId}&chunkIndex=${i}&isLastChunk=${isLastChunk}`, {
         method: 'PUT',
         body: chunk,
         headers: {

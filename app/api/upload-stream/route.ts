@@ -2,7 +2,7 @@ import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeDatabase, updateFileRecord } from '../../../lib/db';
 
-// Use Node.js runtime for better streaming support
+// Use Node.js runtime for database compatibility
 export const runtime = 'nodejs';
 
 interface UploadStreamResponse {

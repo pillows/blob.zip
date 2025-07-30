@@ -615,28 +615,34 @@ export async function GET() {
 
                  result = await response.json();
                } else {
-                 // For larger files, use the upload-url + upload-stream flow
-                 const fileId = nanoid();
+                 // For larger files, use the upload-stream endpoint
+                 // This endpoint is designed to handle large files with streaming
                  
-                 // First, create a database record
-                 const createRecordResponse = await fetch('/api/upload-url', {
+                 // Step 1: Get upload information from the presigned endpoint
+                 const presignedResponse = await fetch('/api/upload-presigned', {
                    method: 'POST',
                    headers: {
                      'Content-Type': 'application/json',
                    },
                    body: JSON.stringify({
-                     filename: file.name,
+                     type: 'blob.generate-client-token',
+                     payload: {
+                       pathname: file.name,
+                       contentType: file.type || 'application/octet-stream',
+                     },
                    }),
                  });
 
-                 if (!createRecordResponse.ok) {
-                   throw new Error('Failed to create upload record');
+                 if (!presignedResponse.ok) {
+                   throw new Error('Failed to get upload information');
                  }
 
-                 const { fileId: createdFileId } = await createRecordResponse.json();
+                 const uploadInfo = await presignedResponse.json();
+                 console.log('Upload info:', uploadInfo);
 
-                 // Upload to the upload-stream endpoint
-                 const uploadResponse = await fetch(\`/api/upload-stream?fileId=\${createdFileId}&filename=\${encodeURIComponent(file.name)}\`, {
+                 // Step 2: Upload to the upload-stream endpoint
+                 // This endpoint uses streaming to handle large files
+                 const uploadResponse = await fetch(\`/api/upload-stream?fileId=\${uploadInfo.fileId}&filename=\${encodeURIComponent(file.name)}\`, {
                    method: 'PUT',
                    body: file,
                    headers: {

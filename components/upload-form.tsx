@@ -56,7 +56,7 @@ export default function UploadForm() {
           setError(result.error || 'Upload failed');
         }
       } else {
-        // For larger files, use the upload-direct endpoint to bypass serverless limits
+        // For larger files, use the upload-stream endpoint to handle large files with streaming
         const fileId = nanoid();
         
         // First, create a database record
@@ -76,8 +76,8 @@ export default function UploadForm() {
 
         const { fileId: createdFileId } = await createRecordResponse.json();
 
-        // Upload to the upload-direct endpoint
-        const uploadResponse = await fetch(`/api/upload-direct?fileId=${createdFileId}&filename=${encodeURIComponent(file.name)}`, {
+        // Upload to the upload-stream endpoint
+        const uploadResponse = await fetch(`/api/upload-stream?fileId=${createdFileId}&filename=${encodeURIComponent(file.name)}`, {
           method: 'PUT',
           body: file,
           headers: {
