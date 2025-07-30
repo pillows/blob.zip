@@ -16,7 +16,7 @@ interface UploadStreamResponse {
 }
 
 // In-memory storage for chunk URLs (temporary solution)
-const chunkStorage = new Map<string, { urls: string[], filename: string }>();
+const chunkStorage = new Map<string, { urls: string[], pathnames: string[], filename: string }>();
 
 export async function PUT(request: NextRequest): Promise<NextResponse<UploadStreamResponse>> {
   try {
@@ -77,15 +77,17 @@ async function handleChunkedUpload(
 
   // Store chunk URL in memory (temporary solution)
   if (!chunkStorage.has(fileId)) {
-    chunkStorage.set(fileId, { urls: [], filename });
+    chunkStorage.set(fileId, { urls: [], pathnames: [], filename });
   }
   const fileChunks = chunkStorage.get(fileId)!;
   
   // Ensure we have space for this chunk
   while (fileChunks.urls.length <= chunkIndex) {
     fileChunks.urls.push('');
+    fileChunks.pathnames.push('');
   }
   fileChunks.urls[chunkIndex] = chunkBlob.url;
+  fileChunks.pathnames[chunkIndex] = chunkBlob.pathname;
 
   // If this is the last chunk, combine all chunks and create the final file
   if (isLastChunk) {
@@ -150,17 +152,13 @@ async function handleChunkedUpload(
 
       // Clean up chunk blobs from Vercel Blob storage
       console.log('Cleaning up chunk blobs...');
-      for (let i = 0; i < fileChunks.urls.length; i++) {
-        const chunkUrl = fileChunks.urls[i];
-        if (chunkUrl) {
+      for (let i = 0; i < fileChunks.pathnames.length; i++) {
+        const chunkPathname = fileChunks.pathnames[i];
+        if (chunkPathname) {
           try {
-            // Extract the blob pathname from the URL
-            const urlParts = chunkUrl.split('/');
-            const blobPathname = urlParts[urlParts.length - 1];
-            
-            console.log(`Deleting chunk blob: ${blobPathname}`);
-            await del(blobPathname);
-            console.log(`Successfully deleted chunk blob: ${blobPathname}`);
+            console.log(`Deleting chunk blob: ${chunkPathname}`);
+            await del(chunkPathname);
+            console.log(`Successfully deleted chunk blob: ${chunkPathname}`);
           } catch (error) {
             console.error(`Failed to delete chunk blob ${i}:`, error);
             // Continue with other chunks even if one fails
