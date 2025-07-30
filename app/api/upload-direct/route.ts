@@ -22,7 +22,30 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     console.log('Upload direct: Processing upload for fileId:', fileId, 'filename:', filename);
 
-    // Use streaming approach to handle large files efficiently
+    // Check content length to determine if this is a large file
+    const contentLength = request.headers.get('content-length');
+    const fileSize = contentLength ? parseInt(contentLength, 10) : 0;
+    
+    // If file is larger than 4MB, return a specific error that tells the client to use chunked upload
+    if (fileSize > 4 * 1024 * 1024) {
+      console.log('Upload direct: Large file detected, instructing client to use chunked upload');
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'FILE_TOO_LARGE_FOR_DIRECT_UPLOAD',
+          message: 'File is too large for direct upload. Please use chunked upload.',
+          fileSize,
+          maxDirectUploadSize: 4 * 1024 * 1024,
+          useChunkedUpload: true,
+          fileId,
+          filename
+        },
+        { status: 413 }
+      );
+    }
+
+    // For smaller files, use streaming approach to handle them efficiently
     const chunks: Uint8Array[] = [];
     let totalSize = 0;
     const maxTotalSize = 100 * 1024 * 1024; // 100MB limit
