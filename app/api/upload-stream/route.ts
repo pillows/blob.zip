@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob';
+import { put, del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeDatabase, updateFileRecord } from '../../../lib/db';
 
@@ -14,6 +14,9 @@ interface UploadStreamResponse {
   expiresAt?: string;
   error?: string;
 }
+
+// In-memory storage for chunk URLs (temporary solution)
+const chunkStorage = new Map<string, { urls: string[], filename: string }>();
 
 export async function PUT(request: NextRequest): Promise<NextResponse<UploadStreamResponse>> {
   try {
@@ -72,59 +75,51 @@ async function handleChunkedUpload(
 
   console.log(`Upload stream: Uploaded chunk ${chunkIndex} as blob: ${chunkBlob.url}`);
 
-  // Store chunk information in database
-  try {
-    // For now, we'll store the chunk URL in a simple way
-    // In a production system, you'd want a proper chunks table
-    await updateFileRecord(fileId, {
-      blobUrl: chunkBlob.url,
-      blobPathname: chunkBlob.pathname,
-      size: chunk.length,
-    });
-  } catch (dbError) {
-    console.error('Upload stream: Failed to update database record:', dbError);
+  // Store chunk URL in memory (temporary solution)
+  if (!chunkStorage.has(fileId)) {
+    chunkStorage.set(fileId, { urls: [], filename });
   }
+  const fileChunks = chunkStorage.get(fileId)!;
+  
+  // Ensure we have space for this chunk
+  while (fileChunks.urls.length <= chunkIndex) {
+    fileChunks.urls.push('');
+  }
+  fileChunks.urls[chunkIndex] = chunkBlob.url;
 
-  // If this is the last chunk, we need to combine all chunks
+  // If this is the last chunk, combine all chunks and create final file
   if (isLastChunk) {
     console.log('Upload stream: Last chunk received, combining chunks');
     
     try {
-      // For now, we'll implement a simple approach:
-      // Download all chunks by trying to fetch them sequentially
+      // Download all chunks using their blob URLs
       const chunks: Uint8Array[] = [];
       let totalSize = 0;
-      let currentChunkIndex = 0;
       
-      while (true) {
-        const chunkBlobName = `${fileId}_chunk_${currentChunkIndex}`;
-        const chunkUrl = `https://blob.zip/${chunkBlobName}`;
-        
-        console.log(`Attempting to download chunk ${currentChunkIndex} from ${chunkUrl}`);
-        
-        try {
-          const chunkResponse = await fetch(chunkUrl);
-          if (!chunkResponse.ok) {
-            console.log(`Chunk ${currentChunkIndex} not found, stopping`);
-            break;
-          }
-          
-          const chunkData = await chunkResponse.arrayBuffer();
-          const chunk = new Uint8Array(chunkData);
-          chunks.push(chunk);
-          totalSize += chunk.length;
-          currentChunkIndex++;
-        } catch (error) {
-          console.log(`Failed to download chunk ${currentChunkIndex}, stopping`);
+      for (let i = 0; i < fileChunks.urls.length; i++) {
+        const chunkUrl = fileChunks.urls[i];
+        if (!chunkUrl) {
+          console.log(`Missing chunk ${i}, stopping`);
           break;
         }
+        
+        console.log(`Downloading chunk ${i} from ${chunkUrl}`);
+        const chunkResponse = await fetch(chunkUrl);
+        if (!chunkResponse.ok) {
+          throw new Error(`Failed to download chunk ${i}`);
+        }
+        
+        const chunkData = await chunkResponse.arrayBuffer();
+        const chunk = new Uint8Array(chunkData);
+        chunks.push(chunk);
+        totalSize += chunk.length;
       }
 
       if (chunks.length === 0) {
         throw new Error('No chunks found to combine');
       }
 
-      console.log(`Found ${chunks.length} chunks, total size: ${totalSize} bytes`);
+      console.log(`Downloaded ${chunks.length} chunks, total size: ${totalSize} bytes`);
 
       // Combine all chunks
       const combinedBuffer = new Uint8Array(totalSize);
@@ -152,6 +147,9 @@ async function handleChunkedUpload(
         blobPathname: finalBlob.pathname,
         size: totalSize,
       });
+
+      // Clean up chunk storage
+      chunkStorage.delete(fileId);
 
       // Calculate expiration date (3 days from now)
       const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
