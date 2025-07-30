@@ -95,22 +95,42 @@ export async function GET(
           blobPathname: file.blob_pathname
         });
         
-        // Try using the blob pathname first
+        // Try using the Vercel Blob REST API directly
         try {
-          await del(file.blob_pathname);
-          console.log('File deleted from Vercel Blob using pathname:', file.filename, 'pathname:', file.blob_pathname);
-        } catch (pathnameError) {
-          console.log('Failed to delete using pathname, trying URL:', pathnameError);
+          const token = process.env.BLOB_READ_WRITE_TOKEN;
+          if (!token) {
+            console.error('BLOB_READ_WRITE_TOKEN not found in environment variables');
+            return;
+          }
           
-          // Fallback: try to extract pathname from URL
+          // Extract the blob pathname from the URL
+          const urlParts = file.blob_url.split('/');
+          const blobPathname = urlParts[urlParts.length - 1];
+          
+          const deleteResponse = await fetch(`https://api.vercel.com/v1/blobs/${blobPathname}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (deleteResponse.ok) {
+            console.log('File deleted from Vercel Blob using REST API:', file.filename, 'pathname:', blobPathname);
+          } else {
+            console.error('Failed to delete using REST API:', deleteResponse.status, deleteResponse.statusText);
+            throw new Error(`REST API deletion failed: ${deleteResponse.status}`);
+          }
+        } catch (restError) {
+          console.log('Failed to delete using REST API, trying del() function:', restError);
+          
+          // Fallback to del() function
           try {
-            const urlParts = file.blob_url.split('/');
-            const extractedPathname = urlParts[urlParts.length - 1];
-            await del(extractedPathname);
-            console.log('File deleted from Vercel Blob using extracted pathname:', file.filename, 'pathname:', extractedPathname);
-          } catch (urlError) {
-            console.error('Failed to delete using URL fallback:', urlError);
-            throw urlError;
+            await del(file.blob_pathname);
+            console.log('File deleted from Vercel Blob using del() function:', file.filename, 'pathname:', file.blob_pathname);
+          } catch (delError) {
+            console.error('Failed to delete using del() function:', delError);
+            throw delError;
           }
         }
       } catch (error) {
