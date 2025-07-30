@@ -56,7 +56,7 @@ export default function UploadForm() {
           setError(result.error || 'Upload failed');
         }
       } else {
-        // For larger files, try direct upload first, then fall back to chunked upload if needed
+        // For larger files, always use chunked upload to prevent 413 errors
         const fileId = nanoid();
         
         // First, create a database record
@@ -76,47 +76,8 @@ export default function UploadForm() {
 
         const { fileId: createdFileId } = await createRecordResponse.json();
 
-        // Try direct upload first
-        try {
-          const uploadResponse = await fetch(`/api/upload-direct?fileId=${createdFileId}&filename=${encodeURIComponent(file.name)}`, {
-            method: 'PUT',
-            body: file,
-            headers: {
-              'Content-Type': file.type || 'application/octet-stream',
-            },
-          });
-
-          if (uploadResponse.ok) {
-            const result = await uploadResponse.json();
-            if (result.success) {
-              setResult({
-                success: true,
-                id: result.id,
-                url: result.url,
-                filename: result.filename,
-                size: result.size,
-                expiresAt: result.expiresAt,
-              });
-              return;
-            }
-          } else {
-            const errorData = await uploadResponse.json();
-            
-            // If the server specifically tells us to use chunked upload, do that
-            if (errorData.error === 'FILE_TOO_LARGE_FOR_DIRECT_UPLOAD' && errorData.useChunkedUpload) {
-              console.log('Server instructed to use chunked upload, switching to chunked approach');
-              await uploadWithChunks(file, createdFileId);
-              return;
-            }
-            
-            throw new Error(errorData.message || 'Upload failed');
-          }
-        } catch (error) {
-          // If direct upload fails for any reason, fall back to chunked upload
-          console.log('Direct upload failed, falling back to chunked upload:', error);
-          await uploadWithChunks(file, createdFileId);
-          return;
-        }
+        // Always use chunked upload for large files
+        await uploadWithChunks(file, createdFileId);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
