@@ -4,11 +4,11 @@ export async function GET() {
   const script = `#!/bin/bash
 
 # One-liner upload script for BlobZip
-# Usage: curl -s https://blob.zip/upload.sh | bash -s "/path/to/file.mov"
+# Usage: curl -s https://blob.zip/api/upload-script | bash -s "/path/to/file.mov"
 
 if [ $# -eq 0 ]; then
-    echo "Usage: curl -s https://blob.zip/upload.sh | bash -s <file_path>"
-    echo "Example: curl -s https://blob.zip/upload.sh | bash -s \\"/Users/snow/Downloads/my-video.mov\\""
+    echo "Usage: curl -s https://blob.zip/api/upload-script | bash -s <file_path>"
+    echo "Example: curl -s https://blob.zip/api/upload-script | bash -s \\"/Users/snow/Downloads/my-video.mov\\""
     exit 1
 fi
 
