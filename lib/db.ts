@@ -92,6 +92,8 @@ export async function isIpBanned(ipAddress: string): Promise<boolean> {
 
 export async function getFileById(id: string) {
   try {
+    console.log('Looking up file by ID:', id)
+    
     const result = await db.query(
       `SELECT * FROM files 
        WHERE id = $1 
@@ -99,9 +101,20 @@ export async function getFileById(id: string) {
        AND expires_at > NOW()`,
       [id]
     )
+    
+    console.log('File lookup result:', { 
+      found: result.rows.length > 0, 
+      rowCount: result.rows.length,
+      file: result.rows[0] || null 
+    })
+    
     return result.rows[0] || null
   } catch (error) {
     console.error('Error getting file by ID:', error)
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
     return null
   }
 }
@@ -130,9 +143,11 @@ export async function createFileRecord(data: {
   userAgent?: string
 }) {
   try {
+    console.log('Creating file record:', { id: data.id, filename: data.filename, size: data.size })
+    
     const result = await db.query(
-      `INSERT INTO files (id, filename, blob_url, blob_pathname, size, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO files (id, filename, blob_url, blob_pathname, size, ip_address, user_agent, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW() + INTERVAL '3 days')
        RETURNING *`,
       [
         data.id,
@@ -144,9 +159,15 @@ export async function createFileRecord(data: {
         data.userAgent,
       ]
     )
+    
+    console.log('File record created successfully:', result.rows[0])
     return result.rows[0]
   } catch (error) {
     console.error('Error creating file record:', error)
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
     throw error
   }
 }
@@ -166,6 +187,59 @@ export async function getAllFiles() {
   } catch (error) {
     console.error('Error getting all files:', error)
     return []
+  }
+}
+
+export async function updateFileRecord(id: string, data: {
+  blobUrl?: string
+  blobPathname?: string
+  size?: number
+}) {
+  try {
+    console.log('updateFileRecord: Updating file with ID:', id);
+    console.log('updateFileRecord: Data to update:', data);
+    
+    const updates = []
+    const values = []
+    let paramCount = 1
+
+    if (data.blobUrl !== undefined) {
+      updates.push(`blob_url = $${paramCount}`)
+      values.push(data.blobUrl)
+      paramCount++
+    }
+
+    if (data.blobPathname !== undefined) {
+      updates.push(`blob_pathname = $${paramCount}`)
+      values.push(data.blobPathname)
+      paramCount++
+    }
+
+    if (data.size !== undefined) {
+      updates.push(`size = $${paramCount}`)
+      values.push(data.size)
+      paramCount++
+    }
+
+    if (updates.length === 0) {
+      console.log('updateFileRecord: No updates to make');
+      return // No updates to make
+    }
+
+    values.push(id)
+    const query = `UPDATE files SET ${updates.join(', ')} WHERE id = $${paramCount}`;
+    console.log('updateFileRecord: Executing query:', query);
+    console.log('updateFileRecord: Values:', values);
+    
+    const result = await db.query(query, values);
+    console.log('updateFileRecord: Update successful, rows affected:', result.rowCount);
+  } catch (error) {
+    console.error('Error updating file record:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    throw error;
   }
 }
 

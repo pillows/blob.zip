@@ -57,18 +57,6 @@ export async function GET(
     const clientIP = getClientIP(request);
     const userAgent = request.headers.get('user-agent');
 
-    // Mark file as downloaded (this prevents future downloads)
-    await markFileAsDownloaded(id);
-
-    // Delete the file from Vercel Blob storage after download
-    try {
-      await del(file.blob_url);
-      console.log('File deleted from Vercel Blob:', file.filename);
-    } catch (blobError) {
-      console.error('Failed to delete file from Vercel Blob:', blobError);
-      // Continue with download even if blob deletion fails
-    }
-
     // Send Discord notification if webhook is configured
     const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
     if (discordWebhook) {
@@ -85,6 +73,20 @@ export async function GET(
         console.error('Discord webhook error:', error);
       });
     }
+
+    // Mark file as downloaded and delete from Vercel Blob storage after a delay
+    setTimeout(async () => {
+      try {
+        // Mark as downloaded first
+        await markFileAsDownloaded(id);
+        
+        // Then delete from Vercel Blob storage
+        await del(file.blob_url);
+        console.log('File deleted from Vercel Blob:', file.filename);
+      } catch (error) {
+        console.error('Failed to mark file as downloaded or delete from Vercel Blob:', error);
+      }
+    }, 5000); // 5 second delay
 
     // Redirect to the actual blob URL
     return NextResponse.redirect(file.blob_url);

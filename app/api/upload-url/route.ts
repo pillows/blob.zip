@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { initializeDatabase, isIpBanned, createFileRecord } from '../../../lib/db';
 import { customAlphabet } from 'nanoid';
-import { initializeDatabase, isIpBanned } from '../../../lib/db';
 
 // Create nanoid with only alphanumeric characters (no underscores or dashes)
 const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 8);
@@ -51,13 +51,25 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadUrl
     // Generate short ID for this upload
     const fileId = nanoid();
 
-    // Generate a simple upload URL pointing to our direct upload endpoint
+    // Create database record with pending status
+    const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
+    await createFileRecord({
+      id: fileId,
+      filename,
+      blobUrl: '', // Will be updated after upload
+      blobPathname: '', // Will be updated after upload
+      size: 0, // Will be updated after upload
+      ipAddress: clientIP,
+      userAgent: request.headers.get('user-agent') || '',
+    });
+
+    // Generate a presigned upload URL for direct client-to-blob upload
     const baseUrl = process.env.BLOBZIP_URL || 
                    (request.headers.get('host') ? 
                     `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
                     'http://localhost:3000');
 
-    const uploadUrl = `${baseUrl}/api/direct-upload?fileId=${fileId}&filename=${encodeURIComponent(filename)}`;
+    const uploadUrl = `${baseUrl}/api/upload-presigned?fileId=${fileId}&filename=${encodeURIComponent(filename)}`;
 
     return NextResponse.json({
       success: true,
