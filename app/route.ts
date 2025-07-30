@@ -615,46 +615,59 @@ export async function GET() {
 
                  result = await response.json();
                } else {
-                 // For larger files, use the upload-stream endpoint
-                 // This endpoint is designed to handle large files with streaming
+                 // For larger files, use chunked upload to bypass Vercel's function payload limits
+                 const fileId = nanoid();
+                 const chunkSize = 4 * 1024 * 1024; // 4MB chunks (under Vercel's 4.5MB limit)
+                 const totalChunks = Math.ceil(file.size / chunkSize);
                  
-                 // Step 1: Get upload information from the presigned endpoint
-                 const presignedResponse = await fetch('/api/upload-presigned', {
+                 console.log(\`Uploading \${file.name} in \${totalChunks} chunks of \${chunkSize} bytes each\`);
+                 
+                 // First, create a database record
+                 const createRecordResponse = await fetch('/api/upload-url', {
                    method: 'POST',
                    headers: {
                      'Content-Type': 'application/json',
                    },
                    body: JSON.stringify({
-                     type: 'blob.generate-client-token',
-                     payload: {
-                       pathname: file.name,
-                       contentType: file.type || 'application/octet-stream',
-                     },
+                     filename: file.name,
                    }),
                  });
 
-                 if (!presignedResponse.ok) {
-                   throw new Error('Failed to get upload information');
+                 if (!createRecordResponse.ok) {
+                   throw new Error('Failed to create upload record');
                  }
 
-                 const uploadInfo = await presignedResponse.json();
-                 console.log('Upload info:', uploadInfo);
+                 const { fileId: createdFileId } = await createRecordResponse.json();
 
-                 // Step 2: Upload to the upload-stream endpoint
-                 // This endpoint uses streaming to handle large files
-                 const uploadResponse = await fetch(\`/api/upload-stream?fileId=\${uploadInfo.fileId}&filename=\${encodeURIComponent(file.name)}\`, {
-                   method: 'PUT',
-                   body: file,
-                   headers: {
-                     'Content-Type': file.type || 'application/octet-stream',
-                   },
-                 });
+                 // Upload chunks
+                 for (let i = 0; i < totalChunks; i++) {
+                   const start = i * chunkSize;
+                   const end = Math.min(start + chunkSize, file.size);
+                   const chunk = file.slice(start, end);
+                   const isLastChunk = i === totalChunks - 1;
 
-                 if (!uploadResponse.ok) {
-                   throw new Error('Upload failed');
+                   console.log(\`Uploading chunk \${i + 1}/\${totalChunks} (\${chunk.size} bytes)\`);
+
+                   const chunkResponse = await fetch(\`/api/upload-stream?fileId=\${createdFileId}&filename=\${encodeURIComponent(file.name)}&chunkIndex=\${i}&isLastChunk=\${isLastChunk}\`, {
+                     method: 'PUT',
+                     body: chunk,
+                     headers: {
+                       'Content-Type': file.type || 'application/octet-stream',
+                     },
+                   });
+
+                   if (!chunkResponse.ok) {
+                     throw new Error(\`Failed to upload chunk \${i + 1}/\${totalChunks}\`);
+                   }
+
+                   const chunkResult = await chunkResponse.json();
+                   
+                   // If this was the last chunk, use the final result
+                   if (isLastChunk && chunkResult.success) {
+                     result = chunkResult;
+                     break;
+                   }
                  }
-
-                 result = await uploadResponse.json();
                }
 
                if (result.success) {
