@@ -802,22 +802,49 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       );
     }
 
-    // For files larger than 4MB, return error directing to chunked upload
-    if (fileSize > 4 * 1024 * 1024) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'File too large for direct upload',
-          details: 'Files larger than 4MB must use the chunked upload approach. Please use the upload-url endpoint first.',
-          fileSize,
-          maxSize: 4 * 1024 * 1024
-        }, 
-        { status: 413 }
-      );
-    }
-
     // Generate short ID
     const fileId = nanoid();
+
+    // For files larger than 4MB, automatically use chunked upload approach
+    if (fileSize > 4 * 1024 * 1024) {
+      console.log('Large file detected, automatically using chunked upload approach:', {
+        filename,
+        fileSize,
+        fileId
+      });
+
+      // Create database record with pending status
+      const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
+      await createFileRecord({
+        id: fileId,
+        filename,
+        blobUrl: '', // Will be updated after upload
+        blobPathname: '', // Will be updated after upload
+        size: 0, // Will be updated after upload
+        ipAddress: clientIP,
+        userAgent: request.headers.get('user-agent') || '',
+      });
+
+      // Return upload URL for chunked upload
+      const baseUrl = process.env.BLOBZIP_URL || 
+                     (request.headers.get('host') ? 
+                      `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
+                      'http://localhost:3000');
+
+      return NextResponse.json({
+        success: true,
+        id: fileId,
+        url: `${baseUrl}/${fileId}`,
+        filename,
+        size: fileSize,
+        expiresAt: expiresAt.toISOString(),
+        message: 'Large file detected. Please use the chunked upload endpoint.',
+        uploadUrl: `${baseUrl}/api/upload-stream?fileId=${fileId}&filename=${encodeURIComponent(filename)}`,
+        chunkedUpload: true,
+        chunkSize: 4 * 1024 * 1024,
+        totalChunks: Math.ceil(fileSize / (4 * 1024 * 1024))
+      });
+    }
 
     console.log('Small file, using direct upload:', {
       filename,
