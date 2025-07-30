@@ -89,8 +89,9 @@ export async function GET(
     // Delete from Vercel Blob storage after a delay
     setTimeout(async () => {
       try {
-        await del(file.blob_url);
-        console.log('File deleted from Vercel Blob:', file.filename);
+        // Use the blob pathname for deletion, not the full URL
+        await del(file.blob_pathname);
+        console.log('File deleted from Vercel Blob:', file.filename, 'pathname:', file.blob_pathname);
       } catch (error) {
         console.error('Failed to delete from Vercel Blob:', error);
       }
