@@ -148,6 +148,26 @@ async function handleChunkedUpload(
         size: totalSize,
       });
 
+      // Clean up chunk blobs from Vercel Blob storage
+      console.log('Cleaning up chunk blobs...');
+      for (let i = 0; i < fileChunks.urls.length; i++) {
+        const chunkUrl = fileChunks.urls[i];
+        if (chunkUrl) {
+          try {
+            // Extract the blob pathname from the URL
+            const urlParts = chunkUrl.split('/');
+            const blobPathname = urlParts[urlParts.length - 1];
+            
+            console.log(`Deleting chunk blob: ${blobPathname}`);
+            await del(blobPathname);
+            console.log(`Successfully deleted chunk blob: ${blobPathname}`);
+          } catch (error) {
+            console.error(`Failed to delete chunk blob ${i}:`, error);
+            // Continue with other chunks even if one fails
+          }
+        }
+      }
+
       // Clean up chunk storage
       chunkStorage.delete(fileId);
 
