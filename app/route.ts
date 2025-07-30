@@ -112,14 +112,14 @@ export async function GET() {
                
                <h5>One-Liner Command:</h5>
                <div class="curl-command-container">
-                 <code class="curl-command">curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s "/path/to/file.mov"</code>
-                 <button class="copy-curl-btn" onclick="copyToClipboard('curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s \\"/path/to/file.mov\\"')">📋</button>
+                 <code class="curl-command">curl -s https://blob.zip/upload.sh | bash -s "/path/to/file.mov"</code>
+                 <button class="copy-curl-btn" onclick="copyToClipboard('curl -s https://blob.zip/upload.sh | bash -s \\"/path/to/file.mov\\"')">📋</button>
                </div>
                
                <h5>Example:</h5>
                <div class="curl-command-container">
-                 <code class="curl-command">curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s "/Users/snow/Downloads/Screen Recording 2025-07-24 at 4.13.56 PM (4).mov"</code>
-                 <button class="copy-curl-btn" onclick="copyToClipboard('curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s \\"/Users/snow/Downloads/Screen Recording 2025-07-24 at 4.13.56 PM (4).mov\\"')">📋</button>
+                 <code class="curl-command">curl -s https://blob.zip/upload.sh | bash -s "/Users/snow/Downloads/Screen Recording 2025-07-24 at 4.13.56 PM (4).mov"</code>
+                 <button class="copy-curl-btn" onclick="copyToClipboard('curl -s https://blob.zip/upload.sh | bash -s \\"/Users/snow/Downloads/Screen Recording 2025-07-24 at 4.13.56 PM (4).mov\\"')">📋</button>
                </div>
                
                <small>✨ Super simple! Just one command handles everything automatically.</small>
