@@ -27,37 +27,18 @@ export default function UploadForm() {
     setError(null);
 
     try {
-      // For files under 4MB, use the regular upload endpoint
-      if (file.size <= 4 * 1024 * 1024) {
-        const formData = new FormData();
-        formData.append('file', file);
+      // Always try the regular upload endpoint first
+      const formData = new FormData();
+      formData.append('file', file);
 
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
+      const response = await fetch('/', {
+        method: 'POST',
+        body: formData,
+      });
 
-        if (!response.ok) {
-          throw new Error('Upload failed');
-        }
-
-        const result = await response.json();
-
-        if (result.success) {
-          setResult({
-            success: true,
-            id: result.id,
-            url: result.url,
-            filename: result.filename,
-            size: result.size,
-            expiresAt: result.expiresAt,
-          });
-        } else {
-          setError(result.error || 'Upload failed');
-        }
-      } else {
-        // For larger files, use chunked upload to prevent 413 errors
-        const fileId = nanoid();
+      // If we get a 413 error, use chunked upload
+      if (response.status === 413) {
+        console.log('File too large for direct upload, using chunked upload');
         
         // First, create a database record
         const createRecordResponse = await fetch('/api/upload-url', {
@@ -78,6 +59,23 @@ export default function UploadForm() {
 
         // Use chunked upload for large files
         await uploadWithChunks(file, createdFileId);
+      } else if (!response.ok) {
+        throw new Error('Upload failed');
+      } else {
+        const result = await response.json();
+
+        if (result.success) {
+          setResult({
+            success: true,
+            id: result.id,
+            url: result.url,
+            filename: result.filename,
+            size: result.size,
+            expiresAt: result.expiresAt,
+          });
+        } else {
+          setError(result.error || 'Upload failed');
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');

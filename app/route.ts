@@ -1,7 +1,7 @@
 import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { customAlphabet } from 'nanoid';
-import { initializeDatabase, isIpBanned, createFileRecord } from '../lib/db';
+import { initializeDatabase, isIpBanned, createFileRecord, updateFileRecordFixed } from '../lib/db';
 
 // Create nanoid with only alphanumeric characters (no underscores or dashes)
 const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 8);
@@ -98,14 +98,32 @@ export async function GET() {
             
             <div class="curl-command-group">
               <h4>📤 Upload a File</h4>
-              <div class="curl-command-container">
-                <code class="curl-command">curl -F "file=@myfile.txt" ${process.env.BLOBZIP_URL || 'http://localhost:3000'}</code>
-                <button class="copy-curl-btn" onclick="copyToClipboard('curl -F \\"file=@myfile.txt\\" ${process.env.BLOBZIP_URL || 'http://localhost:3000'}')">📋</button>
-              </div>
-              <small>Or with custom filename: <code>curl "${process.env.BLOBZIP_URL || 'http://localhost:3000'}?f=custom.txt" --data-binary @./myfile.txt</code></small>
-                              <p><strong>✨ Ultra-simple!</strong> Just post to the root URL - as simple as it gets!</p>
-                <p><small>Note: Frontend now supports files >4.5MB through optimized upload process</small></p>
+                             <div class="curl-command-container">
+                 <code class="curl-command">curl -F "file=@myfile.txt" ${process.env.BLOBZIP_URL || 'http://localhost:3000'}</code>
+                 <button class="copy-curl-btn" onclick="copyToClipboard('curl -F \\"file=@myfile.txt\\" ${process.env.BLOBZIP_URL || 'http://localhost:3000'}')">📋</button>
+               </div>
+               <small>For files under 4.5MB. For larger files, use the one-liner command below.</small>
+              <p><strong>✨ Ultra-simple!</strong> Just post to the root URL - as simple as it gets!</p>
             </div>
+
+                         <div class="curl-command-group">
+               <h4>📤 Upload Large Files (>4.5MB)</h4>
+               <p>Due to Vercel's 4.5MB function payload limit, large files require chunked upload:</p>
+               
+               <h5>One-Liner Command:</h5>
+               <div class="curl-command-container">
+                 <code class="curl-command">curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s "/path/to/file.mov"</code>
+                 <button class="copy-curl-btn" onclick="copyToClipboard('curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s \\"/path/to/file.mov\\"')">📋</button>
+               </div>
+               
+               <h5>Example:</h5>
+               <div class="curl-command-container">
+                 <code class="curl-command">curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s "/Users/snow/Downloads/Screen Recording 2025-07-24 at 4.13.56 PM (4).mov"</code>
+                 <button class="copy-curl-btn" onclick="copyToClipboard('curl -s https://raw.githubusercontent.com/pillows/blob.zip/main/upload-one-liner.sh | bash -s \\"/Users/snow/Downloads/Screen Recording 2025-07-24 at 4.13.56 PM (4).mov\\"')">📋</button>
+               </div>
+               
+               <small>✨ Super simple! Just one command handles everything automatically.</small>
+             </div>
 
             <div class="curl-command-group">
               <h4>⬇️ Download a File</h4>
@@ -119,9 +137,10 @@ export async function GET() {
             <div class="curl-tips">
               <h4>💡 Tips:</h4>
               <ul>
-                                   <li><strong>⚠️ Files can only be downloaded once!</strong></li>
-                   <li><strong>🗑️ Files are deleted immediately after download</strong></li>
-                   <li>Files expire automatically after 3 days</li>
+                <li><strong>⚠️ Files can only be downloaded once!</strong></li>
+                <li><strong>🗑️ Files are deleted immediately after download</strong></li>
+                <li>Files expire automatically after 3 days</li>
+                <li><strong>📦 Files over 4.5MB:</strong> Use the chunked upload script due to Vercel's function payload limits</li>
                 <li>Use the short URL from upload response for downloads</li>
                 <li>Replace <code>FILE_ID</code> with the actual ID from upload response</li>
                 <li>Add <code>| jq</code> to pretty-print JSON responses</li>
@@ -398,6 +417,13 @@ export async function GET() {
       font-size: 1.1rem;
     }
 
+    .curl-command-group h5 {
+      margin: 15px 0 10px 0;
+      color: #555;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
     .curl-command-container {
       position: relative;
       display: flex;
@@ -599,24 +625,19 @@ export async function GET() {
              try {
                let result;
                
-               // For files under 4MB, use the regular upload endpoint
-               if (file.size <= 4 * 1024 * 1024) {
-                 const formData = new FormData();
-                 formData.append('file', file);
+               // Always try the regular upload endpoint first
+               const formData = new FormData();
+               formData.append('file', file);
 
-                 const response = await fetch('/', {
-                   method: 'POST',
-                   body: formData,
-                 });
+               const response = await fetch('/', {
+                 method: 'POST',
+                 body: formData,
+               });
 
-                 if (!response.ok) {
-                   throw new Error('Upload failed');
-                 }
-
-                 result = await response.json();
-               } else {
-                 // For larger files, use chunked upload to bypass Vercel's function payload limits
-                 const fileId = nanoid();
+               // If we get a 413 error, use chunked upload
+               if (response.status === 413) {
+                 console.log('File too large for direct upload, using chunked upload');
+                 
                  const chunkSize = 4 * 1024 * 1024; // 4MB chunks (under Vercel's 4.5MB limit)
                  const totalChunks = Math.ceil(file.size / chunkSize);
                  
@@ -668,6 +689,10 @@ export async function GET() {
                      break;
                    }
                  }
+               } else if (!response.ok) {
+                 throw new Error('Upload failed');
+               } else {
+                 result = await response.json();
                }
 
                if (result.success) {
@@ -768,7 +793,27 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     let fileBuffer: Buffer;
     let fileSize = 0;
 
-    // Try to get from form data first
+    // Check if this is a raw binary upload (--data-binary)
+    const contentType = request.headers.get('content-type');
+    const isRawBinary = !contentType || contentType === 'application/octet-stream';
+    
+    // Check content-length to determine if we need streaming approach
+    const contentLength = request.headers.get('content-length');
+    const estimatedSize = contentLength ? parseInt(contentLength, 10) : 0;
+
+    // If the request is likely to exceed Vercel's limits and it's raw binary, use streaming approach
+    if (estimatedSize > 4 * 1024 * 1024 && isRawBinary) {
+      console.log('Large raw binary request detected, using streaming approach:', {
+        estimatedSize,
+        filename,
+        contentType
+      });
+
+      // For large files, we need to process them in chunks to avoid Vercel's function payload limit
+      return await handleLargeFileUpload(request, filename, clientIP);
+    }
+
+    // Try to get from form data first for smaller files
     try {
       const formData = await request.formData();
       const file = formData.get('file') as File;
@@ -805,45 +850,22 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     // Generate short ID
     const fileId = nanoid();
 
-    // For files larger than 4MB, automatically use chunked upload approach
+    // Double-check file size after reading
     if (fileSize > 4 * 1024 * 1024) {
-      console.log('Large file detected, automatically using chunked upload approach:', {
+      console.log('Large file detected after reading, returning 413 error:', {
         filename,
         fileSize,
         fileId
       });
 
-      // Create database record with pending status
-      const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
-      await createFileRecord({
-        id: fileId,
-        filename,
-        blobUrl: '', // Will be updated after upload
-        blobPathname: '', // Will be updated after upload
-        size: 0, // Will be updated after upload
-        ipAddress: clientIP,
-        userAgent: request.headers.get('user-agent') || '',
-      });
-
-      // Return upload URL for chunked upload
-      const baseUrl = process.env.BLOBZIP_URL || 
-                     (request.headers.get('host') ? 
-                      `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
-                      'http://localhost:3000');
-
       return NextResponse.json({
-        success: true,
-        id: fileId,
-        url: `${baseUrl}/${fileId}`,
-        filename,
-        size: fileSize,
-        expiresAt: expiresAt.toISOString(),
-        message: 'Large file detected. Please use the chunked upload endpoint.',
-        uploadUrl: `${baseUrl}/api/upload-stream?fileId=${fileId}&filename=${encodeURIComponent(filename)}`,
-        chunkedUpload: true,
-        chunkSize: 4 * 1024 * 1024,
-        totalChunks: Math.ceil(fileSize / (4 * 1024 * 1024))
-      });
+        success: false,
+        error: 'FUNCTION_PAYLOAD_TOO_LARGE',
+        message: 'File is too large for direct upload. Use chunked upload.',
+        fileSize,
+        maxDirectUploadSize: 4 * 1024 * 1024,
+        useChunkedUpload: true
+      }, { status: 413 });
     }
 
     console.log('Small file, using direct upload:', {
@@ -908,6 +930,126 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
         error: 'Failed to upload file',
         details: errorMessage 
       },
+      { status: 500 }
+    );
+  }
+}
+
+// Handle large file uploads using streaming approach
+async function handleLargeFileUpload(
+  request: NextRequest, 
+  filename: string | null, 
+  clientIP: string
+): Promise<NextResponse<UploadResponse>> {
+  if (!filename) {
+    return NextResponse.json(
+      { success: false, error: 'Filename is required for large file uploads. Use ?f=filename.ext' }, 
+      { status: 400 }
+    );
+  }
+
+  const fileId = nanoid();
+  console.log('Processing large file upload with streaming:', { fileId, filename });
+
+  try {
+    // Create database record first
+    await createFileRecord({
+      id: fileId,
+      filename,
+      blobUrl: '', // Will be updated after upload
+      blobPathname: '', // Will be updated after upload
+      size: 0, // Will be updated after upload
+      ipAddress: clientIP,
+      userAgent: request.headers.get('user-agent') || '',
+    });
+
+    // Process the request body as a stream to avoid loading everything into memory
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+    const maxTotalSize = 100 * 1024 * 1024; // 100MB limit
+
+    // Read the request body as a stream
+    const reader = request.body?.getReader();
+    if (!reader) {
+      return NextResponse.json(
+        { success: false, error: 'No request body' },
+        { status: 400 }
+      );
+    }
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        chunks.push(value);
+        totalSize += value.length;
+        
+        // Check file size limit
+        if (totalSize > maxTotalSize) {
+          return NextResponse.json(
+            { success: false, error: 'File too large (max 100MB)' },
+            { status: 413 }
+          );
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    console.log('Streaming read complete. Total size:', totalSize, 'bytes');
+
+    // Combine chunks into a single buffer
+    const fileBuffer = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const chunk of chunks) {
+      fileBuffer.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    // Upload to Vercel Blob
+    const blob = await put(filename, fileBuffer, {
+      access: 'public',
+      addRandomSuffix: false,
+    });
+
+    console.log('Large file blob upload successful:', {
+      url: blob.url,
+      pathname: blob.pathname,
+      size: totalSize
+    });
+
+    // Update database record with actual file info
+    await updateFileRecordFixed(fileId, {
+      blobUrl: blob.url,
+      blobPathname: blob.pathname,
+      size: totalSize,
+    });
+
+    // Calculate expiration date (3 days from now)
+    const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+    // Return the shortened URL format
+    const baseUrl = process.env.BLOBZIP_URL || 
+                   (request.headers.get('host') ? 
+                    `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
+                    'http://localhost:3000');
+    
+    const shortenedUrl = `${baseUrl}/${fileId}`;
+
+    return NextResponse.json({
+      success: true,
+      id: fileId,
+      url: shortenedUrl,
+      filename,
+      size: totalSize,
+      expiresAt: expiresAt.toISOString(),
+    });
+
+  } catch (error) {
+    console.error('Large file upload error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to upload large file' },
       { status: 500 }
     );
   }

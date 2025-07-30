@@ -331,3 +331,70 @@ export async function banIP(ipAddress: string, reason: string, durationHours: nu
     throw error
   }
 } 
+
+export async function getFileRecord(id: string) {
+  try {
+    const result = await db.query(
+      `SELECT * FROM files WHERE id = $1`,
+      [id]
+    )
+    return result.rows[0] || null
+  } catch (error) {
+    console.error('Error getting file record:', error)
+    return null
+  }
+}
+
+// Fixed version of updateFileRecord with correct parameter placeholders
+export async function updateFileRecordFixed(id: string, data: {
+  blobUrl?: string
+  blobPathname?: string
+  size?: number
+}) {
+  try {
+    console.log('updateFileRecord: Updating file with ID:', id);
+    console.log('updateFileRecord: Data to update:', data);
+    
+    const updates = []
+    const values = []
+    let paramCount = 1
+
+    if (data.blobUrl !== undefined) {
+      updates.push(`blob_url = $${paramCount}`)
+      values.push(data.blobUrl)
+      paramCount++
+    }
+
+    if (data.blobPathname !== undefined) {
+      updates.push(`blob_pathname = $${paramCount}`)
+      values.push(data.blobPathname)
+      paramCount++
+    }
+
+    if (data.size !== undefined) {
+      updates.push(`size = $${paramCount}`)
+      values.push(data.size)
+      paramCount++
+    }
+
+    if (updates.length === 0) {
+      console.log('updateFileRecord: No updates to make');
+      return // No updates to make
+    }
+
+    values.push(id)
+    const query = `UPDATE files SET ${updates.join(', ')} WHERE id = $${paramCount}`;
+    console.log('updateFileRecord: Executing query:', query);
+    console.log('updateFileRecord: Values:', values);
+    
+    const result = await db.query(query, values);
+    console.log('updateFileRecord: Update successful, rows affected:', result.rowCount);
+  } catch (error) {
+    console.error('Error updating file record:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    throw error;
+  }
+}
