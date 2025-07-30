@@ -766,6 +766,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
     const { searchParams } = new URL(request.url);
     let filename = searchParams.get('f') || searchParams.get('filename');
     let fileBuffer: Buffer;
+    let fileSize = 0;
 
     // Try to get from form data first
     try {
@@ -776,6 +777,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
         // Convert File to ArrayBuffer then to Buffer
         const arrayBuffer = await file.arrayBuffer();
         fileBuffer = Buffer.from(arrayBuffer);
+        fileSize = fileBuffer.length;
       } else {
         throw new Error('No file in form data');
       }
@@ -790,6 +792,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       // Read the body as raw binary data
       const arrayBuffer = await request.arrayBuffer();
       fileBuffer = Buffer.from(arrayBuffer);
+      fileSize = fileBuffer.length;
     }
 
     if (!filename) {
@@ -799,10 +802,28 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
       );
     }
 
-    const fileSize = fileBuffer.length;
+    // For files larger than 4MB, return error directing to chunked upload
+    if (fileSize > 4 * 1024 * 1024) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'File too large for direct upload',
+          details: 'Files larger than 4MB must use the chunked upload approach. Please use the upload-url endpoint first.',
+          fileSize,
+          maxSize: 4 * 1024 * 1024
+        }, 
+        { status: 413 }
+      );
+    }
 
     // Generate short ID
     const fileId = nanoid();
+
+    console.log('Small file, using direct upload:', {
+      filename,
+      fileSize,
+      fileId
+    });
 
     // Upload to Vercel Blob
     console.log('Attempting to upload to Vercel Blob:', {
