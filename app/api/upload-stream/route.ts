@@ -277,20 +277,28 @@ async function handleSingleFileUpload(
   } catch (dbError) {
     console.log('Upload stream: No existing record found, creating new one');
     
-    // If update fails, create a new record
+    // If update fails, create a new record with empty values first
     try {
       await createFileRecord({
         id: fileId,
         filename,
-        blobUrl: blob.url,
-        blobPathname: blob.pathname,
-        size: fileBuffer.length,
+        blobUrl: '', // Will be updated below
+        blobPathname: '', // Will be updated below
+        size: 0, // Will be updated below
         ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || 
                   request.headers.get('x-real-ip') || 
                   '127.0.0.1',
         userAgent: request.headers.get('user-agent') || '',
       });
-      console.log('Upload stream: Database record created successfully');
+      
+      // Now update the record with actual values
+      await updateFileRecord(fileId, {
+        blobUrl: blob.url,
+        blobPathname: blob.pathname,
+        size: fileBuffer.length,
+      });
+      
+      console.log('Upload stream: Database record created and updated successfully');
     } catch (createError) {
       console.error('Upload stream: Failed to create database record:', createError);
       throw createError;
