@@ -1,6 +1,6 @@
 import { put, del } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeDatabase, updateFileRecord } from '../../../lib/db';
+import { initializeDatabase, updateFileRecord, createFileRecord } from '../../../lib/db';
 
 // Use Node.js runtime for database compatibility
 export const runtime = 'nodejs';
@@ -265,8 +265,9 @@ async function handleSingleFileUpload(
   console.log('Upload stream: Blob pathname:', blob.pathname);
   console.log('Upload stream: File size:', fileBuffer.length);
   
-  // Update database record with actual file info
+  // Create or update database record with actual file info
   try {
+    // First try to update existing record
     await updateFileRecord(fileId, {
       blobUrl: blob.url,
       blobPathname: blob.pathname,
@@ -274,8 +275,26 @@ async function handleSingleFileUpload(
     });
     console.log('Upload stream: Database record updated successfully');
   } catch (dbError) {
-    console.error('Upload stream: Failed to update database record:', dbError);
-    throw dbError;
+    console.log('Upload stream: No existing record found, creating new one');
+    
+    // If update fails, create a new record
+    try {
+      await createFileRecord({
+        id: fileId,
+        filename,
+        blobUrl: blob.url,
+        blobPathname: blob.pathname,
+        size: fileBuffer.length,
+        ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || 
+                  request.headers.get('x-real-ip') || 
+                  '127.0.0.1',
+        userAgent: request.headers.get('user-agent') || '',
+      });
+      console.log('Upload stream: Database record created successfully');
+    } catch (createError) {
+      console.error('Upload stream: Failed to create database record:', createError);
+      throw createError;
+    }
   }
 
   // Calculate expiration date (3 days from now)
