@@ -56,8 +56,12 @@ export default function UploadForm() {
           setError(result.error || 'Upload failed');
         }
       } else {
-        // For larger files, use the upload-stream endpoint to handle large files with streaming
+        // For larger files, use chunked upload to bypass Vercel's function payload limits
         const fileId = nanoid();
+        const chunkSize = 4 * 1024 * 1024; // 4MB chunks (under Vercel's 4.5MB limit)
+        const totalChunks = Math.ceil(file.size / chunkSize);
+        
+        console.log(`Uploading ${file.name} in ${totalChunks} chunks of ${chunkSize} bytes each`);
         
         // First, create a database record
         const createRecordResponse = await fetch('/api/upload-url', {
@@ -76,33 +80,51 @@ export default function UploadForm() {
 
         const { fileId: createdFileId } = await createRecordResponse.json();
 
-        // Upload to the upload-stream endpoint
-        const uploadResponse = await fetch(`/api/upload-stream?fileId=${createdFileId}&filename=${encodeURIComponent(file.name)}`, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type || 'application/octet-stream',
-          },
-        });
+        // Upload chunks
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * chunkSize;
+          const end = Math.min(start + chunkSize, file.size);
+          const chunk = file.slice(start, end);
+          const isLastChunk = i === totalChunks - 1;
 
-        if (!uploadResponse.ok) {
-          throw new Error('Upload failed');
-        }
+          console.log(`Uploading chunk ${i + 1}/${totalChunks} (${chunk.size} bytes)`);
 
-        const result = await uploadResponse.json();
-
-        if (result.success) {
-          setResult({
-            success: true,
-            id: result.id,
-            url: result.url,
-            filename: result.filename,
-            size: result.size,
-            expiresAt: result.expiresAt,
+          const chunkResponse = await fetch(`/api/upload-stream?fileId=${createdFileId}&filename=${encodeURIComponent(file.name)}&chunkIndex=${i}&isLastChunk=${isLastChunk}`, {
+            method: 'PUT',
+            body: chunk,
+            headers: {
+              'Content-Type': file.type || 'application/octet-stream',
+              'X-Chunk-Index': i.toString(),
+              'X-Total-Chunks': totalChunks.toString(),
+              'X-Is-Last-Chunk': isLastChunk.toString(),
+            },
           });
-        } else {
-          setError(result.error || 'Upload failed');
+
+          if (!chunkResponse.ok) {
+            throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks}`);
+          }
+
+          const chunkResult = await chunkResponse.json();
+          
+          // Update progress
+          const progress = Math.round(((i + 1) / totalChunks) * 100);
+          setProgress(progress);
+
+          // If this was the last chunk, use the final result
+          if (isLastChunk && chunkResult.success) {
+            setResult({
+              success: true,
+              id: chunkResult.id,
+              url: chunkResult.url,
+              filename: chunkResult.filename,
+              size: chunkResult.size,
+              expiresAt: chunkResult.expiresAt,
+            });
+            return;
+          }
         }
+
+        throw new Error('Upload completed but no final result received');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
