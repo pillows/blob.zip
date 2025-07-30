@@ -15,6 +15,9 @@ interface UploadStreamResponse {
   error?: string;
 }
 
+// In-memory storage for chunk URLs (in production, use database)
+const chunkStorage = new Map<string, { urls: string[], filename: string }>();
+
 export async function PUT(request: NextRequest): Promise<NextResponse<UploadStreamResponse>> {
   try {
     await initializeDatabase();
@@ -72,42 +75,102 @@ async function handleChunkedUpload(
 
   console.log(`Upload stream: Uploaded chunk ${chunkIndex} as blob: ${chunkBlob.url}`);
 
-  // Store chunk information in database
-  try {
-    // For now, we'll store chunk info in a simple way
-    // In a production system, you'd want a proper chunks table
-    await updateFileRecord(fileId, {
-      blobUrl: chunkBlob.url, // This will be overwritten by each chunk, but that's OK for now
-      blobPathname: chunkBlob.pathname,
-      size: chunk.length,
-    });
-  } catch (dbError) {
-    console.error('Upload stream: Failed to update database record:', dbError);
+  // Store chunk URL in memory (in production, use database)
+  if (!chunkStorage.has(fileId)) {
+    chunkStorage.set(fileId, { urls: [], filename });
   }
+  const fileChunks = chunkStorage.get(fileId)!;
+  
+  // Ensure we have space for this chunk
+  while (fileChunks.urls.length <= chunkIndex) {
+    fileChunks.urls.push('');
+  }
+  fileChunks.urls[chunkIndex] = chunkBlob.url;
 
-  // If this is the last chunk, we need to combine all chunks
+  // If this is the last chunk, combine all chunks and create final file
   if (isLastChunk) {
-    console.log('Upload stream: Last chunk received, need to combine chunks');
+    console.log('Upload stream: Last chunk received, combining chunks');
     
-    // For now, return success with the last chunk's info
-    // In a production system, you'd implement proper chunk combination
-    const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-    const baseUrl = process.env.BLOBZIP_URL || 
-                   (request.headers.get('host') ? 
-                    `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
-                    'http://localhost:3000');
-    
-    const shortenedUrl = `${baseUrl}/${fileId}`;
+    try {
+      // Download all chunks
+      const chunks: Uint8Array[] = [];
+      let totalSize = 0;
+      
+      for (let i = 0; i < fileChunks.urls.length; i++) {
+        const chunkUrl = fileChunks.urls[i];
+        if (!chunkUrl) {
+          throw new Error(`Missing chunk ${i}`);
+        }
+        
+        console.log(`Downloading chunk ${i} from ${chunkUrl}`);
+        const chunkResponse = await fetch(chunkUrl);
+        if (!chunkResponse.ok) {
+          throw new Error(`Failed to download chunk ${i}`);
+        }
+        
+        const chunkData = await chunkResponse.arrayBuffer();
+        const chunk = new Uint8Array(chunkData);
+        chunks.push(chunk);
+        totalSize += chunk.length;
+      }
 
-    return NextResponse.json({
-      success: true,
-      id: fileId,
-      url: shortenedUrl,
-      filename,
-      size: chunk.length, // This is just the last chunk size for now
-      expiresAt: expiresAt.toISOString(),
-      message: 'Chunked upload completed. Note: This is a simplified implementation.',
-    });
+      console.log(`Downloaded ${chunks.length} chunks, total size: ${totalSize} bytes`);
+
+      // Combine all chunks
+      const combinedBuffer = new Uint8Array(totalSize);
+      let offset = 0;
+      
+      for (const chunk of chunks) {
+        combinedBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      // Upload the combined file
+      const finalBlob = await put(filename, combinedBuffer, {
+        access: 'public',
+        addRandomSuffix: false,
+      });
+
+      console.log('Upload stream: Combined file uploaded successfully:', {
+        url: finalBlob.url,
+        pathname: finalBlob.pathname
+      });
+
+      // Update database record with final file info
+      await updateFileRecord(fileId, {
+        blobUrl: finalBlob.url,
+        blobPathname: finalBlob.pathname,
+        size: totalSize,
+      });
+
+      // Clean up chunk storage
+      chunkStorage.delete(fileId);
+
+      // Calculate expiration date (3 days from now)
+      const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      const baseUrl = process.env.BLOBZIP_URL || 
+                     (request.headers.get('host') ? 
+                      `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
+                      'http://localhost:3000');
+      
+      const shortenedUrl = `${baseUrl}/${fileId}`;
+
+      return NextResponse.json({
+        success: true,
+        id: fileId,
+        url: shortenedUrl,
+        filename,
+        size: totalSize,
+        expiresAt: expiresAt.toISOString(),
+      });
+
+    } catch (error) {
+      console.error('Upload stream: Failed to combine chunks:', error);
+      return NextResponse.json(
+        { success: false, error: 'Failed to combine chunks' },
+        { status: 500 }
+      );
+    }
   }
 
   // Return success for intermediate chunks
