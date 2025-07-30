@@ -95,6 +95,9 @@ export async function GET(
           blobPathname: file.blob_pathname
         });
         
+        // Temporarily disable deletion for testing
+        console.log('Blob deletion temporarily disabled for testing');
+        /*
         // Try using the Vercel Blob REST API directly
         try {
           const token = process.env.BLOB_READ_WRITE_TOKEN;
@@ -133,6 +136,7 @@ export async function GET(
             throw delError;
           }
         }
+        */
       } catch (error) {
         console.error('Failed to delete from Vercel Blob:', error);
         console.error('Error details:', {
