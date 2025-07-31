@@ -2,6 +2,7 @@ import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { customAlphabet } from 'nanoid';
 import { initializeDatabase, isIpBanned, createFileRecord, updateFileRecordFixed } from '../lib/db';
+import { notifyFileUpload } from '../lib/discord';
 
 // Create nanoid with only alphanumeric characters (no underscores or dashes)
 const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 8);
@@ -34,7 +35,10 @@ export async function GET() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BlobZip - Temporary File Hosting</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link
+    rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>"
+  />
 </head>
 <body>
   <div id="root">
@@ -170,7 +174,6 @@ export async function GET() {
                      <li>IP-based rate limiting prevents abuse</li>
                      <li>No file content scanning or tracking</li>
                      <li>Automatic cleanup after expiration</li>
-                     <li>Optional Discord notifications for monitoring</li>
                    </ul>
           </div>
 
@@ -914,10 +917,28 @@ export async function POST(request: NextRequest): Promise<NextResponse<UploadRes
                     `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
                     'http://localhost:3000');
 
+    const downloadUrl = `${baseUrl}/${fileId}`;
+
+    // Send Discord notification
+    try {
+      await notifyFileUpload({
+        id: fileId,
+        filename,
+        size: fileSize,
+        url: downloadUrl,
+        expiresAt: expiresAt.toISOString(),
+        ipAddress: clientIP,
+        userAgent: request.headers.get('user-agent') || '',
+      });
+    } catch (discordError) {
+      console.error('Failed to send Discord notification:', discordError);
+      // Don't fail the upload if Discord notification fails
+    }
+
     return NextResponse.json({
       success: true,
       id: fileId,
-      url: `${baseUrl}/${fileId}`,
+      url: downloadUrl,
       filename,
       size: fileSize,
       expiresAt: expiresAt.toISOString(),
@@ -1037,6 +1058,22 @@ async function handleLargeFileUpload(
                     'http://localhost:3000');
     
     const shortenedUrl = `${baseUrl}/${fileId}`;
+
+    // Send Discord notification
+    try {
+      await notifyFileUpload({
+        id: fileId,
+        filename,
+        size: totalSize,
+        url: shortenedUrl,
+        expiresAt: expiresAt.toISOString(),
+        ipAddress: clientIP,
+        userAgent: request.headers.get('user-agent') || '',
+      });
+    } catch (discordError) {
+      console.error('Failed to send Discord notification:', discordError);
+      // Don't fail the upload if Discord notification fails
+    }
 
     return NextResponse.json({
       success: true,

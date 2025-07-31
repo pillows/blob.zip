@@ -1,6 +1,7 @@
 import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeDatabase, updateFileRecordFixed as updateFileRecord, getFileRecord } from '../../../lib/db';
+import { notifyFileUpload } from '../../../lib/discord';
 
 export const runtime = 'nodejs';
 
@@ -91,6 +92,22 @@ export async function PUT(request: NextRequest) {
                       'http://localhost:3000');
       
       const shortenedUrl = `${baseUrl}/${fileId}`;
+
+      // Send Discord notification
+      try {
+        await notifyFileUpload({
+          id: fileId,
+          filename,
+          size: combinedBuffer.length,
+          url: shortenedUrl,
+          expiresAt: expiresAt.toISOString(),
+          ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || '127.0.0.1',
+          userAgent: request.headers.get('user-agent') || '',
+        });
+      } catch (discordError) {
+        console.error('Failed to send Discord notification:', discordError);
+        // Don't fail the upload if Discord notification fails
+      }
 
       const response = {
         success: true,

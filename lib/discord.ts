@@ -1,200 +1,150 @@
-interface DiscordEmbed {
-  title: string;
-  description?: string;
-  color: number;
-  fields: Array<{
-    name: string;
-    value: string;
-    inline?: boolean;
+const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1399645623506174054/L-AHuM3DQ6U57sPgXVOaawE-xreHcEp6gW7v6KzIXhiDfAE671IgTPnRrF5BTG4MpeT0';
+
+interface DiscordMessage {
+  content?: string;
+  embeds?: Array<{
+    title?: string;
+    description?: string;
+    color?: number;
+    fields?: Array<{
+      name: string;
+      value: string;
+      inline?: boolean;
+    }>;
+    timestamp?: string;
+    footer?: {
+      text: string;
+    };
   }>;
-  timestamp: string;
-  footer?: {
-    text: string;
-  };
 }
 
-interface DiscordWebhookPayload {
-  embeds: DiscordEmbed[];
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-function maskIP(ip: string): string {
-  // Mask the IP for privacy (e.g., 192.168.1.1 -> 192.168.*.*)
-  const parts = ip.split('.');
-  if (parts.length === 4) {
-    return `${parts[0]}.${parts[1]}.*.*`;
-  }
-  // For IPv6 or other formats, just show first part
-  return ip.split(':')[0] + ':****';
-}
-
-export async function sendDiscordWebhook(webhookUrl: string, payload: DiscordWebhookPayload): Promise<void> {
+export async function sendDiscordNotification(message: DiscordMessage): Promise<void> {
   try {
-    const response = await fetch(webhookUrl, {
+    const response = await fetch(DISCORD_WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(message),
     });
 
     if (!response.ok) {
       console.error('Discord webhook failed:', response.status, response.statusText);
     }
   } catch (error) {
-    console.error('Error sending Discord webhook:', error);
+    console.error('Failed to send Discord notification:', error);
   }
 }
 
-export async function notifyFileUpload({
-  webhookUrl,
-  fileId,
-  filename,
-  size,
-  ipAddress,
-  userAgent,
-  downloadUrl,
-  expiresAt,
-}: {
-  webhookUrl: string;
-  fileId: string;
+export async function notifyFileUpload(fileData: {
+  id: string;
   filename: string;
   size: number;
+  url: string;
+  expiresAt?: string;
   ipAddress: string;
-  userAgent?: string;
-  downloadUrl: string;
-  expiresAt: Date;
+  userAgent: string;
 }): Promise<void> {
-  if (!webhookUrl) return;
-
-  const embed: DiscordEmbed = {
-    title: '📤 File Uploaded',
-    description: `A new file has been uploaded to BlobZip`,
-    color: 0x00ff00, // Green
-    fields: [
-      {
-        name: '📁 Filename',
-        value: filename,
-        inline: true,
-      },
-      {
-        name: '📏 Size',
-        value: formatFileSize(size),
-        inline: true,
-      },
-      {
-        name: '🆔 File ID',
-        value: fileId,
-        inline: true,
-      },
-      {
-        name: '🔗 Download URL',
-        value: downloadUrl,
-        inline: false,
-      },
-      {
-        name: '⏰ Expires',
-        value: `<t:${Math.floor(expiresAt.getTime() / 1000)}:R>`,
-        inline: true,
-      },
-      {
-        name: '🌐 IP Address',
-        value: maskIP(ipAddress),
-        inline: true,
-      },
-    ],
-    timestamp: new Date().toISOString(),
-    footer: {
-      text: 'BlobZip File Monitor',
-    },
-  };
-
-  if (userAgent) {
-    embed.fields.push({
-      name: '🖥️ User Agent',
-      value: userAgent.length > 100 ? userAgent.substring(0, 100) + '...' : userAgent,
-      inline: false,
-    });
-  }
-
-  await sendDiscordWebhook(webhookUrl, { embeds: [embed] });
+  const sizeInMB = (fileData.size / (1024 * 1024)).toFixed(2);
+  const expiresAt = fileData.expiresAt ? new Date(fileData.expiresAt).toISOString() : 'Unknown';
+  
+  await sendDiscordNotification({
+    embeds: [{
+      title: '📤 File Uploaded',
+      description: `A new file has been uploaded to BlobZip`,
+      color: 0x00ff00, // Green
+      fields: [
+        {
+          name: '📁 Filename',
+          value: fileData.filename,
+          inline: true
+        },
+        {
+          name: '🆔 File ID',
+          value: fileData.id,
+          inline: true
+        },
+        {
+          name: '📏 Size',
+          value: `${sizeInMB} MB`,
+          inline: true
+        },
+        {
+          name: '🔗 URL',
+          value: fileData.url,
+          inline: false
+        },
+        {
+          name: '⏰ Expires At',
+          value: expiresAt,
+          inline: true
+        },
+        {
+          name: '🌐 IP Address',
+          value: fileData.ipAddress,
+          inline: true
+        }
+      ],
+      timestamp: new Date().toISOString(),
+      footer: {
+        text: 'BlobZip File Upload'
+      }
+    }]
+  });
 }
 
-export async function notifyFileDownload({
-  webhookUrl,
-  fileId,
-  filename,
-  size,
-  ipAddress,
-  userAgent,
-  uploadedAt,
-}: {
-  webhookUrl: string;
-  fileId: string;
+export async function notifyFileDownload(fileData: {
+  id: string;
   filename: string;
   size: number;
+  url: string;
   ipAddress: string;
-  userAgent?: string;
-  uploadedAt: Date;
+  userAgent: string;
+  downloadCount: number;
 }): Promise<void> {
-  if (!webhookUrl) return;
-
-  const embed: DiscordEmbed = {
-    title: '📥 File Downloaded',
-    description: `A file has been downloaded from BlobZip`,
-    color: 0x0099ff, // Blue
-    fields: [
-      {
-        name: '📁 Filename',
-        value: filename,
-        inline: true,
-      },
-      {
-        name: '📏 Size',
-        value: formatFileSize(size),
-        inline: true,
-      },
-      {
-        name: '🆔 File ID',
-        value: fileId,
-        inline: true,
-      },
-      {
-        name: '📅 Originally Uploaded',
-        value: `<t:${Math.floor(uploadedAt.getTime() / 1000)}:R>`,
-        inline: true,
-      },
-      {
-        name: '🌐 IP Address',
-        value: maskIP(ipAddress),
-        inline: true,
-      },
-             {
-         name: '⚠️ Status',
-         value: 'File deleted from storage (one-time download)',
-         inline: false,
-       },
-    ],
-    timestamp: new Date().toISOString(),
-    footer: {
-      text: 'BlobZip File Monitor',
-    },
-  };
-
-  if (userAgent) {
-    embed.fields.push({
-      name: '🖥️ User Agent',
-      value: userAgent.length > 100 ? userAgent.substring(0, 100) + '...' : userAgent,
-      inline: false,
-    });
-  }
-
-  await sendDiscordWebhook(webhookUrl, { embeds: [embed] });
+  const sizeInMB = (fileData.size / (1024 * 1024)).toFixed(2);
+  
+  await sendDiscordNotification({
+    embeds: [{
+      title: '📥 File Downloaded',
+      description: `A file has been downloaded from BlobZip`,
+      color: 0x0099ff, // Blue
+      fields: [
+        {
+          name: '📁 Filename',
+          value: fileData.filename,
+          inline: true
+        },
+        {
+          name: '🆔 File ID',
+          value: fileData.id,
+          inline: true
+        },
+        {
+          name: '📏 Size',
+          value: `${sizeInMB} MB`,
+          inline: true
+        },
+        {
+          name: '🔗 URL',
+          value: fileData.url,
+          inline: false
+        },
+        {
+          name: '📊 Download Count',
+          value: fileData.downloadCount.toString(),
+          inline: true
+        },
+        {
+          name: '🌐 IP Address',
+          value: fileData.ipAddress,
+          inline: true
+        }
+      ],
+      timestamp: new Date().toISOString(),
+      footer: {
+        text: 'BlobZip File Download'
+      }
+    }]
+  });
 } 

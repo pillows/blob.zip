@@ -57,21 +57,20 @@ export async function GET(
     const clientIP = getClientIP(request);
     const userAgent = request.headers.get('user-agent');
 
-    // Send Discord notification if webhook is configured
-    const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
-    if (discordWebhook) {
-      // Fire and forget - don't wait for Discord webhook
-      notifyFileDownload({
-        webhookUrl: discordWebhook,
-        fileId: file.id,
+    // Send Discord notification
+    try {
+      await notifyFileDownload({
+        id: file.id,
         filename: file.filename,
         size: file.size,
+        url: file.blob_url,
         ipAddress: clientIP,
-        userAgent: userAgent || undefined,
-        uploadedAt: new Date(file.uploaded_at),
-      }).catch(error => {
-        console.error('Discord webhook error:', error);
+        userAgent: userAgent || '',
+        downloadCount: 1, // This is the first download
       });
+    } catch (discordError) {
+      console.error('Failed to send Discord notification:', discordError);
+      // Don't fail the download if Discord notification fails
     }
 
     // Mark file as downloaded immediately
