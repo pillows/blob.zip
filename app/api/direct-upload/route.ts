@@ -76,28 +76,26 @@ export async function PUT(request: NextRequest): Promise<NextResponse<DirectUplo
       userAgent: request.headers.get('user-agent') || undefined,
     });
 
-    // Send Discord notification if webhook is configured
-    const discordWebhook = process.env.DISCORD_WEBHOOK_URL;
-    if (discordWebhook) {
+    // Send Discord notification
+    try {
       const baseUrl = process.env.BLOBZIP_URL || 
                      (request.headers.get('host') ? 
                       `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}` : 
                       'http://localhost:3000');
       const downloadUrl = `${baseUrl}/${fileId}`;
       
-      // Fire and forget - don't wait for Discord webhook
-      notifyFileUpload({
-        webhookUrl: discordWebhook,
-        fileId,
+      await notifyFileUpload({
+        id: fileId,
         filename,
         size: fileSize,
+        url: downloadUrl,
+        expiresAt: expiresAt.toISOString(),
         ipAddress: clientIP,
-        userAgent: request.headers.get('user-agent') || undefined,
-        downloadUrl,
-        expiresAt,
-      }).catch(error => {
-        console.error('Discord webhook error:', error);
+        userAgent: request.headers.get('user-agent') || '',
       });
+    } catch (discordError) {
+      console.error('Failed to send Discord notification:', discordError);
+      // Don't fail the upload if Discord notification fails
     }
 
     const baseUrl = process.env.BLOBZIP_URL || 
