@@ -49,6 +49,7 @@ export async function notifyFileUpload(fileData: {
   const expiresAt = fileData.expiresAt ? new Date(fileData.expiresAt).toISOString() : 'Unknown';
   
   await sendDiscordNotification({
+    content: '<@78331908810874880> 📤 New file uploaded!',
     embeds: [{
       title: '📤 File Uploaded',
       description: `A new file has been uploaded to BlobZip`,
@@ -105,6 +106,7 @@ export async function notifyFileDownload(fileData: {
   const sizeInMB = (fileData.size / (1024 * 1024)).toFixed(2);
   
   await sendDiscordNotification({
+    content: '<@78331908810874880> 📥 File downloaded!',
     embeds: [{
       title: '📥 File Downloaded',
       description: `A file has been downloaded from BlobZip`,
