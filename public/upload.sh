@@ -1,14 +1,11 @@
-import { NextResponse } from 'next/server';
-
-export async function GET() {
-  const script = `#!/bin/bash
+#!/bin/bash
 
 # One-liner upload script for BlobZip
-# Usage: curl -s https://blob.zip/api/upload-script | bash -s "/path/to/file.mov"
+# Usage: curl -s https://blob.zip/upload.sh | bash -s "/path/to/file.mov"
 
 if [ $# -eq 0 ]; then
-    echo "Usage: curl -s https://blob.zip/api/upload-script | bash -s <file_path>"
-    echo "Example: curl -s https://blob.zip/api/upload-script | bash -s \\"/Users/snow/Downloads/my-video.mov\\""
+    echo "Usage: curl -s https://blob.zip/upload.sh | bash -s <file_path>"
+    echo "Example: curl -s https://blob.zip/upload.sh | bash -s \"/Users/snow/Downloads/my-video.mov\""
     exit 1
 fi
 
@@ -35,9 +32,9 @@ if [ $FILE_SIZE -gt 4194304 ]; then
     
     # Step 1: Create upload record
     echo "📝 Creating upload record..."
-    CREATE_RESPONSE=$(curl -s -X POST "$BASE_URL/api/upload-url" \\
-      -H "Content-Type: application/json" \\
-      -d "{\\"filename\\":\\"$FILENAME\\"}")
+    CREATE_RESPONSE=$(curl -s -X POST "$BASE_URL/api/upload-url" \
+      -H "Content-Type: application/json" \
+      -d "{\"filename\":\"$FILENAME\"}")
     
     if [ $? -ne 0 ]; then
         echo "❌ Failed to create upload record"
@@ -77,8 +74,8 @@ if [ $FILE_SIZE -gt 4194304 ]; then
         dd if="$FILE_PATH" bs=1 skip=$START count=$CHUNK_SIZE_ACTUAL 2>/dev/null > "$CHUNK_FILE"
         
         # Upload chunk
-        CHUNK_RESPONSE=$(curl -s -X PUT "$BASE_URL/api/upload-stream?fileId=$FILE_ID&filename=$(echo "$FILENAME" | sed 's/ /%20/g')&chunkIndex=$i&isLastChunk=$IS_LAST_CHUNK" \\
-          -H "Content-Type: application/octet-stream" \\
+        CHUNK_RESPONSE=$(curl -s -X PUT "$BASE_URL/api/upload-stream?fileId=$FILE_ID&filename=$(echo "$FILENAME" | sed 's/ /%20/g')&chunkIndex=$i&isLastChunk=$IS_LAST_CHUNK" \
+          -H "Content-Type: application/octet-stream" \
           --data-binary @"$CHUNK_FILE")
         
         # Clean up temporary chunk file
@@ -133,12 +130,4 @@ else
 fi
 
 echo ""
-echo "✅ Upload process completed!"`;
-
-  return new NextResponse(script, {
-    headers: {
-      'Content-Type': 'text/plain',
-      'Content-Disposition': 'inline; filename="upload.sh"',
-    },
-  });
-} 
+echo "✅ Upload process completed!" 
