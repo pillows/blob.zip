@@ -9,7 +9,7 @@ export async function GET() {
     '',
     'if [ $# -eq 0 ]; then',
     '    echo "Usage: curl -s https://blob.zip/upload | bash -s <file_path>"',
-    '    echo "Example: curl -s https://blob.zip/upload | bash -s \\"/Users/snow/Downloads/my-video.mov\\""',
+    '    echo "Example: curl -s https://blob.zip/upload | bash -s \\"/path/to/your/file.mov\\""',
     '    exit 1',
     'fi',
     '',
