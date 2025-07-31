@@ -148,8 +148,41 @@ export async function GET(
       }
     }, 5000); // 5 second delay
 
-    // Redirect to the actual blob URL
-    return NextResponse.redirect(file.blob_url);
+    // Fetch the file content from Vercel Blob and serve it directly
+    try {
+      const blobResponse = await fetch(file.blob_url);
+      
+      if (!blobResponse.ok) {
+        console.error('Failed to fetch blob:', blobResponse.status, blobResponse.statusText);
+        return NextResponse.json(
+          { error: 'File not found in storage' },
+          { status: 404 }
+        );
+      }
+
+      const fileContent = await blobResponse.arrayBuffer();
+      
+      // Create response with proper headers
+      const response = new NextResponse(fileContent, {
+        status: 200,
+        headers: {
+          'Content-Type': blobResponse.headers.get('content-type') || 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="${file.filename}"`,
+          'Content-Length': fileContent.byteLength.toString(),
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      });
+
+      return response;
+    } catch (fetchError) {
+      console.error('Failed to fetch file content:', fetchError);
+      return NextResponse.json(
+        { error: 'Failed to retrieve file content' },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Download error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
