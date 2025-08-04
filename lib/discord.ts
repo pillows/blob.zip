@@ -1,4 +1,4 @@
-const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1399645623506174054/L-AHuM3DQ6U57sPgXVOaawE-xreHcEp6gW7v6KzIXhiDfAE671IgTPnRrF5BTG4MpeT0';
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
 interface DiscordMessage {
   content?: string;
@@ -19,6 +19,11 @@ interface DiscordMessage {
 }
 
 export async function sendDiscordNotification(message: DiscordMessage): Promise<void> {
+  if (!DISCORD_WEBHOOK_URL) {
+    console.warn('DISCORD_WEBHOOK_URL not configured, skipping Discord notification');
+    return;
+  }
+
   try {
     const response = await fetch(DISCORD_WEBHOOK_URL, {
       method: 'POST',

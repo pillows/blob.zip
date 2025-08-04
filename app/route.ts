@@ -528,6 +528,50 @@ export async function GET() {
       font-size: 0.85rem;
     }
 
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding: 30px 20px;
+      color: white;
+    }
+    
+    .footer p {
+      margin: 0 0 20px 0;
+      font-size: 1rem;
+      font-weight: 600;
+      opacity: 0.9;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+    
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    
+    .footer-link {
+      color: white;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 10px 18px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      transition: all 0.3s ease;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+    
+    .footer-link:hover {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    }
+
     @media (max-width: 768px) {
       .container {
         padding: 10px;
@@ -543,6 +587,20 @@ export async function GET() {
       
       .info-section {
         grid-template-columns: 1fr;
+      }
+      
+      .footer {
+        margin-top: 30px;
+        padding: 25px 15px;
+      }
+      
+      .footer-links {
+        gap: 15px;
+      }
+      
+      .footer-link {
+        font-size: 0.85rem;
+        padding: 6px 12px;
       }
     }
   </style>
@@ -767,6 +825,16 @@ export async function GET() {
              setupDragAndDrop();
            });
          </script>
+         
+         <footer class="footer">
+           <p>&copy; 2024 BlobZip. Simple file hosting.</p>
+           <div class="footer-links">
+             <a href="/legal" class="footer-link">Legal</a>
+             <a href="/legal/terms" class="footer-link">Terms</a>
+             <a href="/legal/privacy" class="footer-link">Privacy</a>
+             <a href="/legal/aup" class="footer-link">AUP</a>
+           </div>
+         </footer>
 </body>
 </html>`;
 
